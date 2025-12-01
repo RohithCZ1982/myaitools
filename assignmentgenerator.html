@@ -162,25 +162,8 @@
     </div>
 
     <script>
-        // Check if user came from index.html - redirect if not
-        // Only redirect on initial page load, not on subsequent interactions
-        (function() {
-            const indexPage = 'index.html';
-            const allowedAccess = sessionStorage.getItem('allowedAccess');
-            const hasVisited = sessionStorage.getItem('hasVisitedAssignmentPage');
-            
-            // If no access flag and hasn't visited before, redirect
-            if (allowedAccess !== 'true' && !hasVisited) {
-                window.location.replace(indexPage);
-                return;
-            }
-            
-            // Mark as visited and clear the access flag (only once)
-            if (allowedAccess === 'true') {
-                sessionStorage.setItem('hasVisitedAssignmentPage', 'true');
-                sessionStorage.removeItem('allowedAccess');
-            }
-        })();
+        // Redirect check removed - page can be accessed directly
+        // If you want to restrict access, you can add it back, but it was causing issues with form submissions
 
         const form = document.getElementById('assignment-form');
         const classInput = document.getElementById('class');
@@ -225,7 +208,10 @@
         const USE_ANTHROPIC = false; // Set to true to use Anthropic Claude instead
         
         // Google Gemini API Key (Default)
-        const encodedApiKey = "AIzaSyBgG67flw7V7heIS2qxEEK9jOR-aMG52aM"; // ⚠️ ADD YOUR ENCODED API KEY HERE
+        // IMPORTANT: You need to ENCODE your API key using btoa() in browser console
+        // Example: btoa("AIzaSyBgG67flw7V7heIS2qxEEK9jOR-aMG52aM")
+        // Then paste the encoded result below
+        const encodedApiKey = "QUl6YVNieEdnNjdmbHc3VjdoZUlTMnF4RUVLOWpPUi1hTUc1MmFN"; // ⚠️ ENCODED API KEY (use btoa() to encode)
         const apiKey = atob(encodedApiKey);
         
         // OpenAI API Key (Alternative)
