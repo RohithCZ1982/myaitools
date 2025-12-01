@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>List Available Models - Google Generative AI</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Inter font and custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6EE7B7;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #34D399;
+        }
+        
+        .model-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .model-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .method-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin: 0.25rem;
+        }
+        
+        .method-supported {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .method-unsupported {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col items-center justify-start bg-gray-50">
+
+    <div class="w-full max-w-6xl bg-white shadow-xl rounded-2xl p-6 lg:p-8">
+        <!-- Back Button -->
+        <a href="index.html" 
+           class="inline-flex items-center text-sm text-emerald-600 hover:text-emerald-700 font-medium mb-4 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Home
+        </a>
+        
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Available Models</h1>
+        <p class="text-gray-500 mb-6">List of Google Generative AI models available for your API key</p>
+        
+        <!-- API Key Warning -->
+        <div id="api-key-warning" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-yellow-600 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-yellow-800">API Key Required</p>
+                    <p class="text-xs text-yellow-700 mt-1">Please add your Google Generative AI API key to list models.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Load Models Button -->
+        <div class="mb-6">
+            <button id="load-models-button"
+                    class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Load Available Models
+            </button>
+        </div>
+
+        <!-- Status Message -->
+        <div id="status-message" class="hidden mb-4 p-3 rounded-lg"></div>
+
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="hidden text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+            <p class="mt-2 text-gray-600">Loading available models...</p>
+        </div>
+
+        <!-- Models Display -->
+        <div id="models-container" class="hidden">
+            <div class="mb-4 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-gray-800">Models (<span id="model-count">0</span>)</h2>
+                <div class="flex gap-2">
+                    <label class="flex items-center text-sm text-gray-600">
+                        <input type="checkbox" id="filter-generateContent" class="mr-2" checked>
+                        Show only generateContent models
+                    </label>
+                </div>
+            </div>
+            <div id="models-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Models will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div id="summary-section" class="hidden mt-8 p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Summary</h3>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="bg-white p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Total Models</p>
+                    <p class="text-2xl font-bold text-emerald-600" id="total-models">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">generateContent Support</p>
+                    <p class="text-2xl font-bold text-emerald-600" id="generate-content-count">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">API Versions</p>
+                    <p class="text-sm font-semibold text-gray-800" id="api-versions">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if user came from index.html - redirect if not
+        (function() {
+            const indexPage = 'index.html';
+            const allowedAccess = sessionStorage.getItem('allowedAccess');
+            
+            if (allowedAccess !== 'true') {
+                window.location.replace(indexPage);
+                return;
+            }
+            
+            sessionStorage.removeItem('allowedAccess');
+        })();
+
+        const loadModelsButton = document.getElementById('load-models-button');
+        const statusMessage = document.getElementById('status-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const modelsContainer = document.getElementById('models-container');
+        const modelsGrid = document.getElementById('models-grid');
+        const apiKeyWarning = document.getElementById('api-key-warning');
+        const summarySection = document.getElementById('summary-section');
+        const filterGenerateContent = document.getElementById('filter-generateContent');
+
+        // ============================================
+        // API KEY SETUP - Use the same key as assignment generator
+        // ============================================
+        const encodedApiKey = "QUl6YVN5QVFhZHhCNTJ4TV83YnBmTXNLYTNzZVZBZ05WQmplNW53"; // ⚠️ SAME KEY AS ASSIGNMENT GENERATOR
+        const apiKey = atob(encodedApiKey);
+
+        // Check if API key is set
+        if (!apiKey || apiKey.trim() === '') {
+            apiKeyWarning.classList.remove('hidden');
+            loadModelsButton.disabled = true;
+        }
+
+        let allModels = [];
+        let filteredModels = [];
+
+        /**
+         * Shows status message
+         */
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = isError 
+                ? 'mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg' 
+                : 'mb-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg';
+            statusMessage.classList.remove('hidden');
+        }
+
+        /**
+         * Lists available models from Google Generative AI API
+         */
+        async function listAvailableModels() {
+            if (!apiKey || apiKey.trim() === '') {
+                showStatus("Please add your Google Generative AI API key.", true);
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // Try v1beta first
+                let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                let data = await response.json();
+
+                if (!response.ok) {
+                    // Try v1 if v1beta fails
+                    response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`);
+                    data = await response.json();
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+                }
+
+                if (data.models && data.models.length > 0) {
+                    allModels = data.models;
+                    filteredModels = allModels;
+                    displayModels(allModels);
+                    updateSummary(allModels);
+                    showStatus(`Successfully loaded ${allModels.length} models!`, false);
+                } else {
+                    throw new Error("No models found in API response.");
+                }
+            } catch (error) {
+                console.error('Error listing models:', error);
+                showStatus(`Error: ${error.message}`, true);
+                modelsContainer.classList.add('hidden');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        /**
+         * Displays models in the grid
+         */
+        function displayModels(models) {
+            modelsGrid.innerHTML = '';
+            
+            if (models.length === 0) {
+                modelsGrid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">No models found matching the filter.</p>';
+                return;
+            }
+
+            models.forEach(model => {
+                const modelCard = document.createElement('div');
+                modelCard.className = 'model-card bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
+                
+                const supportsGenerateContent = model.supportedGenerationMethods?.includes('generateContent') || false;
+                const displayName = model.displayName || model.name.split('/').pop();
+                const modelName = model.name;
+                const version = model.name.includes('v1beta') ? 'v1beta' : (model.name.includes('v1') ? 'v1' : 'unknown');
+                
+                // Extract model identifier (e.g., "gemini-1.5-flash" from "models/gemini-1.5-flash")
+                const modelId = modelName.split('/').pop();
+                
+                let methodsHtml = '';
+                if (model.supportedGenerationMethods && model.supportedGenerationMethods.length > 0) {
+                    model.supportedGenerationMethods.forEach(method => {
+                        const isSupported = method === 'generateContent';
+                        methodsHtml += `<span class="method-badge ${isSupported ? 'method-supported' : 'method-unsupported'}">${method}</span>`;
+                    });
+                } else {
+                    methodsHtml = '<span class="text-gray-400 text-sm">No methods listed</span>';
+                }
+
+                modelCard.innerHTML = `
+                    <div class="flex items-start justify-between mb-2">
+                        <h3 class="font-semibold text-gray-800 text-lg">${displayName}</h3>
+                        ${supportsGenerateContent ? '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded">✓ generateContent</span>' : ''}
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2 font-mono break-all">${modelName}</p>
+                    <p class="text-xs text-gray-400 mb-3">Version: <span class="font-semibold">${version}</span></p>
+                    <div class="mb-3">
+                        <p class="text-xs text-gray-600 mb-1">Supported Methods:</p>
+                        <div class="flex flex-wrap">${methodsHtml}</div>
+                    </div>
+                    ${model.description ? `<p class="text-xs text-gray-600 mt-2">${model.description}</p>` : ''}
+                    <div class="mt-3 pt-3 border-t border-gray-200">
+                        <button onclick="copyModelName('${modelId}')" class="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                            📋 Copy Model ID
+                        </button>
+                    </div>
+                `;
+                
+                modelsGrid.appendChild(modelCard);
+            });
+
+            document.getElementById('model-count').textContent = models.length;
+            modelsContainer.classList.remove('hidden');
+        }
+
+        /**
+         * Updates summary statistics
+         */
+        function updateSummary(models) {
+            const totalModels = models.length;
+            const generateContentModels = models.filter(m => 
+                m.supportedGenerationMethods?.includes('generateContent')
+            ).length;
+            
+            const versions = new Set();
+            models.forEach(m => {
+                if (m.name.includes('v1beta')) versions.add('v1beta');
+                if (m.name.includes('v1')) versions.add('v1');
+            });
+            
+            document.getElementById('total-models').textContent = totalModels;
+            document.getElementById('generate-content-count').textContent = generateContentModels;
+            document.getElementById('api-versions').textContent = Array.from(versions).join(', ') || 'unknown';
+            
+            summarySection.classList.remove('hidden');
+        }
+
+        /**
+         * Filters models based on checkbox
+         */
+        function filterModels() {
+            if (filterGenerateContent.checked) {
+                filteredModels = allModels.filter(m => 
+                    m.supportedGenerationMethods?.includes('generateContent')
+                );
+            } else {
+                filteredModels = allModels;
+            }
+            displayModels(filteredModels);
+        }
+
+        /**
+         * Shows loading state
+         */
+        function showLoading() {
+            loadModelsButton.disabled = true;
+            loadModelsButton.innerHTML = `
+                <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Loading...
+            `;
+            loadingIndicator.classList.remove('hidden');
+            modelsContainer.classList.add('hidden');
+            summarySection.classList.add('hidden');
+            statusMessage.classList.add('hidden');
+        }
+
+        /**
+         * Hides loading state
+         */
+        function hideLoading() {
+            loadModelsButton.disabled = false;
+            loadModelsButton.innerHTML = `
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Load Available Models
+            `;
+            loadingIndicator.classList.add('hidden');
+        }
+
+        /**
+         * Copies model name to clipboard
+         */
+        function copyModelName(modelId) {
+            navigator.clipboard.writeText(modelId).then(() => {
+                showStatus(`Copied "${modelId}" to clipboard!`, false);
+                setTimeout(() => {
+                    statusMessage.classList.add('hidden');
+                }, 2000);
+            }).catch(err => {
+                showStatus('Failed to copy to clipboard', true);
+            });
+        }
+
+        // Make copyModelName available globally
+        window.copyModelName = copyModelName;
+
+        // Event listeners
+        loadModelsButton.addEventListener('click', listAvailableModels);
+        filterGenerateContent.addEventListener('change', filterModels);
+    </script>
+</body>
+</html>
+

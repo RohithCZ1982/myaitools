@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assignment Sheet Generator</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Load Inter font and custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6EE7B7;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #34D399;
+        }
+        
+        /* Assignment sheet styling */
+        #assignment-sheet {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .question-item {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .question-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col items-center justify-start bg-gray-50">
+
+    <div class="w-full max-w-4xl bg-white shadow-xl rounded-2xl p-6 lg:p-8">
+        <!-- Back Button -->
+        <a href="index.html" 
+           class="inline-flex items-center text-sm text-emerald-600 hover:text-emerald-700 font-medium mb-4 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Home
+        </a>
+        
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">AI Assignment Sheet Generator</h1>
+        <p class="text-gray-500 mb-6">Generate customized assignment sheets with questions based on your example.</p>
+        
+        <!-- API Key Warning -->
+        <div id="api-key-warning" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-yellow-600 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-yellow-800">API Key Required</p>
+                    <p class="text-xs text-yellow-700 mt-1">Please add your Google Generative AI API key to generate assignments. See <code class="bg-yellow-100 px-1 rounded">API_KEY_SETUP.md</code> for instructions.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Form -->
+        <form id="assignment-form" class="space-y-4">
+            
+            <!-- Class -->
+            <div>
+                <label for="class" class="block text-sm font-medium text-gray-700">Class <span class="text-red-500">*</span></label>
+                <input type="text" id="class" required placeholder="e.g., Grade 10, Class 5A, Year 12"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Subject Module -->
+            <div>
+                <label for="subject-module" class="block text-sm font-medium text-gray-700">Subject Module <span class="text-red-500">*</span></label>
+                <input type="text" id="subject-module" required placeholder="e.g., Mathematics - Algebra, Science - Physics, English Literature"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Example Question -->
+            <div>
+                <label for="example-question" class="block text-sm font-medium text-gray-700">Example Question <span class="text-red-500">*</span></label>
+                <textarea id="example-question" required rows="4" placeholder="e.g., Solve for x: 2x + 5 = 15"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150"></textarea>
+                <p class="mt-1 text-xs text-gray-400">Provide an example question that represents the type and style of questions you want generated.</p>
+            </div>
+
+            <!-- Difficulty Level -->
+            <div>
+                <label for="difficulty" class="block text-sm font-medium text-gray-700">Question Difficulty <span class="text-red-500">*</span></label>
+                <select id="difficulty" required
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                    <option value="">Select difficulty level</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                </select>
+            </div>
+
+            <!-- Number of Questions -->
+            <div>
+                <label for="num-questions" class="block text-sm font-medium text-gray-700">Number of Questions <span class="text-red-500">*</span></label>
+                <input type="number" id="num-questions" required min="1" max="50" value="5" placeholder="e.g., 5"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Generate Button -->
+            <button type="submit" id="generate-button"
+                    class="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Generate Assignment Sheet
+            </button>
+        </form>
+
+        <!-- Status Message -->
+        <div id="status-message" class="mt-4 hidden p-3 rounded-lg"></div>
+
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="hidden mt-6 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+            <p class="mt-2 text-gray-600">Generating assignment questions...</p>
+        </div>
+
+        <!-- Output Area -->
+        <div id="output-area" class="mt-6 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Generated Assignment Sheet</h2>
+                <button id="download-pdf-button"
+                        class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow hover:bg-emerald-700 transition-colors duration-200">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export to PDF
+                </button>
+            </div>
+            <div id="assignment-sheet" class="bg-white border border-gray-200 rounded-lg p-6">
+                <!-- Assignment content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if user came from index.html - redirect if not
+        (function() {
+            const indexPage = 'index.html';
+            const allowedAccess = sessionStorage.getItem('allowedAccess');
+            
+            if (allowedAccess !== 'true') {
+                window.location.replace(indexPage);
+                return;
+            }
+            
+            sessionStorage.removeItem('allowedAccess');
+        })();
+
+        const form = document.getElementById('assignment-form');
+        const classInput = document.getElementById('class');
+        const subjectModuleInput = document.getElementById('subject-module');
+        const exampleQuestionInput = document.getElementById('example-question');
+        const difficultyInput = document.getElementById('difficulty');
+        const numQuestionsInput = document.getElementById('num-questions');
+        const generateButton = document.getElementById('generate-button');
+        const outputArea = document.getElementById('output-area');
+        const downloadPdfButton = document.getElementById('download-pdf-button');
+        const statusMessage = document.getElementById('status-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const apiKeyWarning = document.getElementById('api-key-warning');
+        const assignmentSheet = document.getElementById('assignment-sheet');
+
+        // ============================================
+        // API KEY SETUP INSTRUCTIONS:
+        // 
+        // OPTION 1: Google Gemini API (Recommended - Free tier available)
+        // 1. Go to: https://console.cloud.google.com/
+        // 2. Create a new project
+        // 3. Enable "Generative Language API"
+        // 4. Create credentials → API Key
+        // 5. Copy your API key and encode it using: btoa("YOUR_API_KEY")
+        // 6. Paste the encoded key in the encodedApiKey variable below
+        //
+        // OPTION 2: OpenAI API (Alternative - Paid, but very reliable)
+        // 1. Go to: https://platform.openai.com/api-keys
+        // 2. Create an API key
+        // 3. Encode it using: btoa("YOUR_OPENAI_API_KEY")
+        // 4. Set useOpenAI = true and paste encoded key in openAIApiKey below
+        //
+        // OPTION 3: Anthropic Claude API (Alternative - Paid)
+        // 1. Go to: https://console.anthropic.com/
+        // 2. Create an API key
+        // 3. Encode it using: btoa("YOUR_ANTHROPIC_API_KEY")
+        // 4. Set useAnthropic = true and paste encoded key in anthropicApiKey below
+        // ============================================
+        
+        // API Provider Selection
+        const USE_OPENAI = false; // Set to true to use OpenAI instead
+        const USE_ANTHROPIC = false; // Set to true to use Anthropic Claude instead
+        
+        // Google Gemini API Key (Default)
+        const encodedApiKey = "QUl6YVN5QVFhZHhCNTJ4TV83YnBmTXNLYTNzZVZBZ05WQmplNW53"; // ⚠️ ADD YOUR ENCODED API KEY HERE
+        const apiKey = atob(encodedApiKey);
+        
+        // OpenAI API Key (Alternative)
+        const encodedOpenAIApiKey = ""; // ⚠️ ADD YOUR ENCODED OPENAI API KEY HERE (if using OpenAI)
+        const openAIApiKey = encodedOpenAIApiKey ? atob(encodedOpenAIApiKey) : "";
+        
+        // Anthropic Claude API Key (Alternative)
+        const encodedAnthropicApiKey = ""; // ⚠️ ADD YOUR ENCODED ANTHROPIC API KEY HERE (if using Anthropic)
+        const anthropicApiKey = encodedAnthropicApiKey ? atob(encodedAnthropicApiKey) : "";
+        
+        // Google Generative AI API endpoint (using Gemini)
+        const getApiUrl = (modelName = 'gemini-1.5-flash', useV1 = false) => {
+            const apiVersion = useV1 ? 'v1' : 'v1beta';
+            return `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${apiKey}`;
+        };
+        
+        const MAX_RETRIES = 3;
+        // List of models to try in order (v1beta has better model support)
+        // Only using v1beta as v1 has limited model availability
+        const MODEL_OPTIONS = [
+            { name: 'gemini-2.5-flash', v1: false },  // v1beta - fastest, most commonly available
+            { name: 'gemini-1.5-pro', v1: false },    // v1beta - better quality
+        ];
+
+        // Check if API key is set
+        if (!apiKey || apiKey.trim() === '') {
+            apiKeyWarning.classList.remove('hidden');
+        } else {
+            // List available models on page load (for debugging)
+            listAvailableModels();
+        }
+
+        /**
+         * Shows loading state
+         */
+        function showLoading() {
+            generateButton.disabled = true;
+            generateButton.innerHTML = `
+                <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Generating...
+            `;
+            loadingIndicator.classList.remove('hidden');
+            outputArea.classList.add('hidden');
+            statusMessage.classList.add('hidden');
+        }
+
+        /**
+         * Hides loading state
+         */
+        function hideLoading() {
+            generateButton.disabled = false;
+            generateButton.innerHTML = `
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Generate Assignment Sheet
+            `;
+            loadingIndicator.classList.add('hidden');
+        }
+
+        /**
+         * Shows status message
+         */
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = isError 
+                ? 'mt-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg' 
+                : 'mt-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg';
+            statusMessage.classList.remove('hidden');
+        }
+
+        /**
+         * Lists available models (helper function for debugging)
+         */
+        async function listAvailableModels() {
+            if (!apiKey || apiKey.trim() === '') {
+                console.warn('API key not set, cannot list models');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                const data = await response.json();
+                if (data.models) {
+                    console.log('Available models:', data.models.map(m => m.name).join(', '));
+                }
+            } catch (error) {
+                console.warn('Could not list models:', error);
+            }
+        }
+
+        /**
+         * Generates questions using AI API (supports Google Gemini, OpenAI, or Anthropic)
+         */
+        async function generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions, attempt = 1, modelIndex = 0) {
+            const prompt = `You are an expert educator creating an assignment sheet. Generate ${numQuestions} questions for ${classValue} students studying ${subjectModule}.
+
+Example question style:
+${exampleQuestion}
+
+Requirements:
+- Difficulty level: ${difficulty}
+- All questions should be similar in style and format to the example question
+- Questions should be appropriate for ${classValue} level
+- Each question should be clear, well-formatted, and educational
+- Number each question starting from 1
+- Format the output as a clean list where each question is on its own line or clearly separated
+
+Generate exactly ${numQuestions} questions now:`;
+
+            // Try OpenAI first if enabled
+            if (USE_OPENAI && openAIApiKey) {
+                return await generateWithOpenAI(prompt, attempt);
+            }
+            
+            // Try Anthropic if enabled
+            if (USE_ANTHROPIC && anthropicApiKey) {
+                return await generateWithAnthropic(prompt, attempt);
+            }
+            
+            // Default to Google Gemini
+            if (!apiKey || apiKey.trim() === '') {
+                throw new Error('API key is not set. Please add your Google Generative AI API key, or enable OpenAI/Anthropic.');
+            }
+
+            // Try next model if current one fails
+            if (modelIndex >= MODEL_OPTIONS.length) {
+                throw new Error('All available models failed. Please check your API key and model availability.');
+            }
+
+            const currentModelConfig = MODEL_OPTIONS[modelIndex];
+            const apiUrl = getApiUrl(currentModelConfig.name, currentModelConfig.v1);
+
+            const payload = {
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 2048,
+                }
+            };
+
+            try {
+                console.log(`Sending request to generate questions using model: ${currentModelConfig.name} (${currentModelConfig.v1 ? 'v1' : 'v1beta'})...`);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseData = await response.json();
+                console.log('API Response status:', response.status);
+
+                if (!response.ok) {
+                    console.error('API Error Response:', responseData);
+                    let errorMessage = responseData.error?.message || responseData.message || `HTTP error! status: ${response.status}`;
+                    
+                    // If model not found, try next model
+                    if (errorMessage.includes('not found') || errorMessage.includes('not supported') || errorMessage.includes('Call ListModels') || response.status === 404) {
+                        console.log(`Model ${currentModelConfig.name} (${currentModelConfig.v1 ? 'v1' : 'v1beta'}) not available, trying next model...`);
+                        if (modelIndex < MODEL_OPTIONS.length - 1) {
+                            return generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions, 1, modelIndex + 1);
+                        } else {
+                            // If all models failed, suggest using alternative API
+                            throw new Error(`All Gemini models failed. Error: ${errorMessage}. Consider using OpenAI or Anthropic API instead. See code comments for setup instructions.`);
+                        }
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+
+                if (responseData.candidates && responseData.candidates.length > 0 && responseData.candidates[0].content) {
+                    const generatedText = responseData.candidates[0].content.parts[0].text;
+                    return generatedText;
+                } else {
+                    console.error('Unexpected API response format:', responseData);
+                    throw new Error("API did not return text in expected format.");
+                }
+            } catch (error) {
+                console.error(`Attempt ${attempt} failed with model ${currentModelConfig.name}:`, error);
+                if (error.message.includes('API key')) {
+                    throw error;
+                }
+                
+                // If model not found error, try next model
+                if (error.message.includes('not found') || error.message.includes('not supported')) {
+                    if (modelIndex < MODEL_OPTIONS.length - 1) {
+                        return generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions, 1, modelIndex + 1);
+                    }
+                }
+                
+                if (attempt < MAX_RETRIES) {
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions, attempt + 1, modelIndex);
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        /**
+         * Generates questions using OpenAI API
+         */
+        async function generateWithOpenAI(prompt, attempt = 1) {
+            if (!openAIApiKey || openAIApiKey.trim() === '') {
+                throw new Error('OpenAI API key is not set.');
+            }
+
+            const payload = {
+                model: 'gpt-3.5-turbo',
+                messages: [
+                    { role: 'system', content: 'You are an expert educator creating assignment questions.' },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.7,
+                max_tokens: 2000
+            };
+
+            try {
+                console.log('Sending request to OpenAI...');
+                
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${openAIApiKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseData = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(responseData.error?.message || `OpenAI API error: ${response.status}`);
+                }
+
+                if (responseData.choices && responseData.choices.length > 0) {
+                    return responseData.choices[0].message.content;
+                } else {
+                    throw new Error("OpenAI did not return text in expected format.");
+                }
+            } catch (error) {
+                console.error(`OpenAI attempt ${attempt} failed:`, error);
+                if (attempt < MAX_RETRIES && !error.message.includes('API key')) {
+                    const delay = Math.pow(2, attempt) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return generateWithOpenAI(prompt, attempt + 1);
+                }
+                throw error;
+            }
+        }
+
+        /**
+         * Generates questions using Anthropic Claude API
+         */
+        async function generateWithAnthropic(prompt, attempt = 1) {
+            if (!anthropicApiKey || anthropicApiKey.trim() === '') {
+                throw new Error('Anthropic API key is not set.');
+            }
+
+            const payload = {
+                model: 'claude-3-haiku-20240307',
+                max_tokens: 2000,
+                messages: [
+                    { role: 'user', content: prompt }
+                ]
+            };
+
+            try {
+                console.log('Sending request to Anthropic...');
+                
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': anthropicApiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseData = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(responseData.error?.message || `Anthropic API error: ${response.status}`);
+                }
+
+                if (responseData.content && responseData.content.length > 0) {
+                    return responseData.content[0].text;
+                } else {
+                    throw new Error("Anthropic did not return text in expected format.");
+                }
+            } catch (error) {
+                console.error(`Anthropic attempt ${attempt} failed:`, error);
+                if (attempt < MAX_RETRIES && !error.message.includes('API key')) {
+                    const delay = Math.pow(2, attempt) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return generateWithAnthropic(prompt, attempt + 1);
+                }
+                throw error;
+            }
+        }
+
+        /**
+         * Parses the generated text into individual questions
+         */
+        function parseQuestions(text) {
+            // Split by common question patterns
+            const lines = text.split('\n').filter(line => line.trim());
+            const questions = [];
+            
+            for (let line of lines) {
+                line = line.trim();
+                // Skip empty lines
+                if (!line) continue;
+                
+                // Check if line looks like a question (starts with number, Q, or question mark)
+                if (/^\d+[\.\)]\s/.test(line) || /^[Qq](\d+)?[\.\):]\s/.test(line) || line.includes('?') || line.length > 20) {
+                    // Remove leading numbers/letters and formatting
+                    let question = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[Qq](\d+)?[\.\):]\s*/, '').trim();
+                    if (question) {
+                        questions.push(question);
+                    }
+                } else if (questions.length > 0) {
+                    // Append to last question if it's a continuation
+                    questions[questions.length - 1] += ' ' + line;
+                }
+            }
+            
+            // If parsing didn't work well, split by double newlines or question marks
+            if (questions.length === 0) {
+                const parts = text.split(/\n\n+/);
+                questions.push(...parts.filter(p => p.trim().length > 10));
+            }
+            
+            return questions.filter(q => q.trim().length > 5);
+        }
+
+        /**
+         * Renders the assignment sheet
+         */
+        function renderAssignmentSheet(classValue, subjectModule, questions) {
+            const date = new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            let html = `
+                <div style="margin-bottom: 2rem;">
+                    <h1 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem; text-align: center;">Assignment Sheet</h1>
+                    <div style="text-align: center; color: #6b7280; margin-bottom: 1rem;">
+                        <p style="margin: 0.25rem 0;"><strong>Class:</strong> ${classValue}</p>
+                        <p style="margin: 0.25rem 0;"><strong>Subject Module:</strong> ${subjectModule}</p>
+                        <p style="margin: 0.25rem 0;"><strong>Date:</strong> ${date}</p>
+                    </div>
+                </div>
+                <div style="margin-top: 2rem;">
+            `;
+
+            questions.forEach((question, index) => {
+                html += `
+                    <div class="question-item" style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb;">
+                        <p style="margin: 0; line-height: 1.6;">
+                            <strong>${index + 1}.</strong> ${question}
+                        </p>
+                    </div>
+                `;
+            });
+
+            html += `
+                </div>
+                <div style="margin-top: 2rem; padding-top: 1rem; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 0.875rem;">
+                    <p>Good luck with your assignment!</p>
+                </div>
+            `;
+
+            assignmentSheet.innerHTML = html;
+        }
+
+        /**
+         * Exports assignment sheet to PDF
+         */
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Get assignment content
+            const classValue = classInput.value;
+            const subjectModule = subjectModuleInput.value;
+            const date = new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            // Get questions from the rendered sheet
+            const questionItems = assignmentSheet.querySelectorAll('.question-item');
+            const questions = Array.from(questionItems).map(item => {
+                const text = item.textContent.trim();
+                return text.replace(/^\d+\.\s*/, '');
+            });
+
+            // Set font
+            doc.setFont('helvetica');
+            
+            // Title
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Assignment Sheet', 105, 20, { align: 'center' });
+            
+            // Class, Subject, Date
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Class: ${classValue}`, 105, 30, { align: 'center' });
+            doc.text(`Subject Module: ${subjectModule}`, 105, 36, { align: 'center' });
+            doc.text(`Date: ${date}`, 105, 42, { align: 'center' });
+            
+            // Questions
+            let yPos = 55;
+            doc.setFontSize(11);
+            
+            questions.forEach((question, index) => {
+                // Check if we need a new page
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                // Split long questions into multiple lines
+                const lines = doc.splitTextToSize(`${index + 1}. ${question}`, 180);
+                
+                lines.forEach((line, lineIndex) => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.text(line, 15, yPos);
+                    yPos += 6;
+                });
+                
+                yPos += 4; // Space between questions
+            });
+            
+            // Footer
+            const pageCount = doc.internal.pages.length - 1;
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(9);
+                doc.text('Good luck with your assignment!', 105, 285, { align: 'center' });
+            }
+            
+            // Save PDF
+            const fileName = `Assignment_${classValue.replace(/\s+/g, '_')}_${date.replace(/\s+/g, '_')}.pdf`;
+            doc.save(fileName);
+        }
+
+        /**
+         * Form submission handler
+         */
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!apiKey || apiKey.trim() === '') {
+                showStatus("Please add your Google Generative AI API key in the code to generate assignments.", true);
+                return;
+            }
+            
+            const classValue = classInput.value.trim();
+            const subjectModule = subjectModuleInput.value.trim();
+            const exampleQuestion = exampleQuestionInput.value.trim();
+            const difficulty = difficultyInput.value;
+            const numQuestions = parseInt(numQuestionsInput.value);
+
+            if (!classValue || !subjectModule || !exampleQuestion || !difficulty || !numQuestions) {
+                showStatus("Please fill in all required fields.", true);
+                return;
+            }
+
+            if (numQuestions < 1 || numQuestions > 50) {
+                showStatus("Number of questions must be between 1 and 50.", true);
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const generatedText = await generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions);
+                const questions = parseQuestions(generatedText);
+                
+                // Ensure we have the right number of questions
+                if (questions.length < numQuestions) {
+                    // If we got fewer questions, pad with placeholders or use what we have
+                    console.warn(`Generated ${questions.length} questions, requested ${numQuestions}`);
+                }
+                
+                // Take only the requested number
+                const finalQuestions = questions.slice(0, numQuestions);
+                
+                if (finalQuestions.length === 0) {
+                    throw new Error("No questions were generated. Please try again with a different example question.");
+                }
+
+                renderAssignmentSheet(classValue, subjectModule, finalQuestions);
+                outputArea.classList.remove('hidden');
+                showStatus(`Successfully generated ${finalQuestions.length} questions!`, false);
+            } catch (error) {
+                console.error('Error generating assignment:', error);
+                showStatus(`Error: ${error.message}`, true);
+                outputArea.classList.add('hidden');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // PDF export button handler
+        downloadPdfButton.addEventListener('click', () => {
+            try {
+                exportToPDF();
+                showStatus("PDF exported successfully!", false);
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                showStatus(`Error exporting PDF: ${error.message}`, true);
+            }
+        });
+    </script>
+</body>
+</html>
+
