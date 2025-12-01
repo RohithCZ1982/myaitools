@@ -1022,9 +1022,23 @@ Provide the answers:`;
             
             // Debug: log to console
             console.log('Answers rendered:', answersSheet.innerHTML.length, 'characters');
-            console.log('Answers HTML:', answersSheet.innerHTML.substring(0, 200));
+            console.log('Answers HTML preview:', answersSheet.innerHTML.substring(0, 300));
             console.log('Answers area element:', answersArea);
-            console.log('Answers area classes:', answersArea.className);
+            console.log('Answers area classes before:', answersArea.className);
+            
+            // Force remove hidden class - Tailwind's hidden uses display: none
+            // We need to remove it and ensure the element is visible
+            answersArea.classList.remove('hidden');
+            // Use !important to override any Tailwind styles
+            answersArea.style.setProperty('display', 'block', 'important');
+            answersArea.style.setProperty('visibility', 'visible', 'important');
+            answersArea.style.setProperty('opacity', '1', 'important');
+            
+            console.log('Answers area classes after:', answersArea.className);
+            console.log('Answers area display:', window.getComputedStyle(answersArea).display);
+            console.log('Answers area visibility:', window.getComputedStyle(answersArea).visibility);
+            console.log('Answers area offsetHeight:', answersArea.offsetHeight);
+            console.log('Answers area offsetWidth:', answersArea.offsetWidth);
         }
 
         /**
@@ -1325,13 +1339,12 @@ Provide the answers:`;
                 
                 renderAnswersSheet(classValue, subjectModule, answersText);
                 
-                // Force show the answers area
-                answersArea.classList.remove('hidden');
-                answersArea.style.display = 'block';
-                
-                console.log('Answers area should be visible now');
-                console.log('Answers area display style:', window.getComputedStyle(answersArea).display);
-                console.log('Answers sheet content length:', answersSheet.innerHTML.length);
+                // The renderAnswersSheet function already handles showing the area
+                // But let's also scroll to it to make sure it's visible
+                setTimeout(() => {
+                    answersArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    console.log('Scrolled to answers area');
+                }, 200);
                 
                 showStatus('Successfully generated answers!', false);
             } catch (error) {
