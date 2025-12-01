@@ -163,16 +163,23 @@
 
     <script>
         // Check if user came from index.html - redirect if not
+        // Only redirect on initial page load, not on subsequent interactions
         (function() {
             const indexPage = 'index.html';
             const allowedAccess = sessionStorage.getItem('allowedAccess');
+            const hasVisited = sessionStorage.getItem('hasVisitedAssignmentPage');
             
-            if (allowedAccess !== 'true') {
+            // If no access flag and hasn't visited before, redirect
+            if (allowedAccess !== 'true' && !hasVisited) {
                 window.location.replace(indexPage);
                 return;
             }
             
-            sessionStorage.removeItem('allowedAccess');
+            // Mark as visited and clear the access flag (only once)
+            if (allowedAccess === 'true') {
+                sessionStorage.setItem('hasVisitedAssignmentPage', 'true');
+                sessionStorage.removeItem('allowedAccess');
+            }
         })();
 
         const form = document.getElementById('assignment-form');
