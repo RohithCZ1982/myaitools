@@ -922,29 +922,78 @@ Provide the answers:`;
                 day: 'numeric' 
             });
 
-            // Convert markdown-style formatting to HTML
-            let html = answersText
-                // Headers
-                .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.25rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #1f2937;">$1</h3>')
-                .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.5rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; color: #1f2937;">$1</h2>')
-                .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.875rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; color: #1f2937;">$1</h1>')
-                // Bold
-                .replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600; color: #1f2937;">$1</strong>')
-                // Lists
-                .replace(/^\- (.*$)/gim, '<li style="margin-left: 1rem; margin-bottom: 0.25rem;">$1</li>')
-                .replace(/^\d+\. (.*$)/gim, '<li style="margin-left: 1rem; margin-bottom: 0.25rem;">$1</li>')
-                // Paragraphs
-                .split('\n\n')
-                .map(para => {
-                    const trimmed = para.trim();
-                    if (!trimmed) return '';
-                    if (trimmed.startsWith('<')) return trimmed; // Already HTML
-                    return `<p style="margin-bottom: 1rem; line-height: 1.6; color: #374151;">${trimmed}</p>`;
-                })
-                .join('');
+            // Process the answers text line by line
+            const lines = answersText.split('\n');
+            let html = '';
+            let inList = false;
+            let currentList = '';
 
-            // Wrap lists
-            html = html.replace(/(<li.*<\/li>)/gs, '<ul style="list-disc; margin-left: 1.5rem; margin-bottom: 1rem; space-y: 0.25rem;">$1</ul>');
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (!line) {
+                    if (inList && currentList) {
+                        html += `<ul style="list-disc; margin-left: 1.5rem; margin-bottom: 1rem;">${currentList}</ul>`;
+                        currentList = '';
+                        inList = false;
+                    }
+                    continue;
+                }
+
+                // Check for numbered answers (1., 2., etc.)
+                const numberedMatch = line.match(/^(\d+)\.\s*(.+)$/);
+                if (numberedMatch) {
+                    if (inList && currentList) {
+                        html += `<ul style="list-disc; margin-left: 1.5rem; margin-bottom: 1rem;">${currentList}</ul>`;
+                        currentList = '';
+                        inList = false;
+                    }
+                    const answerNum = numberedMatch[1];
+                    const answerText = numberedMatch[2];
+                    html += `
+                        <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <p style="margin: 0; line-height: 1.6; color: #374151;">
+                                <strong style="color: #1f2937;">${answerNum}.</strong> ${answerText.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600; color: #1f2937;">$1</strong>')}
+                            </p>
+                        </div>
+                    `;
+                    continue;
+                }
+
+                // Check for list items
+                if (line.match(/^[-*]\s/) || line.match(/^\d+[\.\)]\s/)) {
+                    if (!inList) {
+                        inList = true;
+                        currentList = '';
+                    }
+                    const listText = line.replace(/^[-*]\s*/, '').replace(/^\d+[\.\)]\s*/, '');
+                    currentList += `<li style="margin-bottom: 0.5rem; line-height: 1.6; color: #374151;">${listText.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600; color: #1f2937;">$1</strong>')}</li>`;
+                    continue;
+                }
+
+                // Regular paragraph
+                if (inList && currentList) {
+                    html += `<ul style="list-disc; margin-left: 1.5rem; margin-bottom: 1rem;">${currentList}</ul>`;
+                    currentList = '';
+                    inList = false;
+                }
+
+                // Check for headers
+                if (line.startsWith('###')) {
+                    html += `<h3 style="font-size: 1.25rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #1f2937;">${line.replace(/^###\s*/, '')}</h3>`;
+                } else if (line.startsWith('##')) {
+                    html += `<h2 style="font-size: 1.5rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; color: #1f2937;">${line.replace(/^##\s*/, '')}</h2>`;
+                } else if (line.startsWith('#')) {
+                    html += `<h1 style="font-size: 1.875rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; color: #1f2937;">${line.replace(/^#\s*/, '')}</h1>`;
+                } else {
+                    html += `<p style="margin-bottom: 1rem; line-height: 1.6; color: #374151;">${line.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600; color: #1f2937;">$1</strong>')}</p>`;
+                }
+            }
+
+            // Close any remaining list
+            if (inList && currentList) {
+                html += `<ul style="list-disc; margin-left: 1.5rem; margin-bottom: 1rem;">${currentList}</ul>`;
+            }
 
             const headerHtml = `
                 <div style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #10b981;">
@@ -958,6 +1007,9 @@ Provide the answers:`;
             `;
 
             answersSheet.innerHTML = headerHtml + html;
+            
+            // Debug: log to console
+            console.log('Answers rendered:', answersSheet.innerHTML.length, 'characters');
         }
 
         /**
@@ -1249,8 +1301,10 @@ Provide the answers:`;
 
             try {
                 const answersText = await generateAnswers(currentQuestions, classValue, subjectModule, difficulty);
+                console.log('Generated answers text:', answersText);
                 renderAnswersSheet(classValue, subjectModule, answersText);
                 answersArea.classList.remove('hidden');
+                console.log('Answers area should be visible now');
                 showStatus('Successfully generated answers!', false);
             } catch (error) {
                 console.error('Error generating answers:', error);
