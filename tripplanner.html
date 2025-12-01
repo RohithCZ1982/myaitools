@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized Travel & Trip Planner</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Load API Key Configuration -->
+    <script src="config.js"></script>
+    
+    <!-- Load Inter font and custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6EE7B7;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #34D399;
+        }
+        
+        /* Trip plan styling */
+        #trip-plan {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .day-section {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .day-section:last-child {
+            border-bottom: none;
+        }
+        
+        .category-section {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 0.5rem;
+            border-left: 4px solid #10b981;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col items-center justify-start bg-gray-50">
+
+    <div class="w-full max-w-5xl bg-white shadow-xl rounded-2xl p-6 lg:p-8">
+        <!-- Back Button -->
+        <a href="index.html" 
+           class="inline-flex items-center text-sm text-emerald-600 hover:text-emerald-700 font-medium mb-4 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Home
+        </a>
+        
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Personalized Travel & Trip Planner</h1>
+        <p class="text-gray-500 mb-6">Get a custom trip plan tailored to your preferences, budget, and interests</p>
+        
+        <!-- API Key Warning -->
+        <div id="api-key-warning" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-yellow-600 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-yellow-800">API Key Required</p>
+                    <p class="text-xs text-yellow-700 mt-1">Please add your Google Generative AI API key in config.js to use this feature.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Form -->
+        <form id="trip-form" class="space-y-4">
+            
+            <!-- Destination -->
+            <div>
+                <label for="destination" class="block text-sm font-medium text-gray-700">Destination (Country/Region/City) <span class="text-red-500">*</span></label>
+                <input type="text" id="destination" required placeholder="e.g., Japan, Paris, Bali, Italy"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Travel Dates -->
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label for="start-date" class="block text-sm font-medium text-gray-700">Start Date <span class="text-red-500">*</span></label>
+                    <input type="date" id="start-date" required
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                </div>
+                <div>
+                    <label for="end-date" class="block text-sm font-medium text-gray-700">End Date <span class="text-red-500">*</span></label>
+                    <input type="date" id="end-date" required
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                </div>
+            </div>
+
+            <!-- Duration (auto-calculated) -->
+            <div>
+                <label for="duration" class="block text-sm font-medium text-gray-700">Trip Duration</label>
+                <input type="text" id="duration" readonly
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-gray-50 text-gray-600">
+                <p class="mt-1 text-xs text-gray-400">Automatically calculated from your dates</p>
+            </div>
+
+            <!-- Budget -->
+            <div>
+                <label for="budget" class="block text-sm font-medium text-gray-700">Budget (per person) <span class="text-red-500">*</span></label>
+                <div class="mt-1 flex rounded-lg shadow-sm">
+                    <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                        $
+                    </span>
+                    <input type="number" id="budget" required min="0" step="0.01" placeholder="e.g., 2000"
+                           class="flex-1 block w-full px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                </div>
+                <p class="mt-1 text-xs text-gray-400">Enter your total budget for the trip</p>
+            </div>
+
+            <!-- Travel Style / Interests -->
+            <div>
+                <label for="interests" class="block text-sm font-medium text-gray-700">Travel Interests & Style <span class="text-red-500">*</span></label>
+                <textarea id="interests" required rows="3" placeholder="e.g., Culture, History, Food, Adventure, Nature, Beaches, Nightlife, Shopping, Museums, Architecture"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150"></textarea>
+                <p class="mt-1 text-xs text-gray-400">Describe your interests, travel style, and what you enjoy doing</p>
+            </div>
+
+            <!-- Number of Travelers -->
+            <div>
+                <label for="travelers" class="block text-sm font-medium text-gray-700">Number of Travelers <span class="text-red-500">*</span></label>
+                <input type="number" id="travelers" required min="1" max="20" value="2" placeholder="e.g., 2"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Accommodation Preference -->
+            <div>
+                <label for="accommodation" class="block text-sm font-medium text-gray-700">Accommodation Preference</label>
+                <select id="accommodation"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                    <option value="">Any</option>
+                    <option value="budget">Budget (Hostels, Budget Hotels)</option>
+                    <option value="mid-range">Mid-Range (3-4 Star Hotels)</option>
+                    <option value="luxury">Luxury (5 Star Hotels, Resorts)</option>
+                    <option value="unique">Unique (Boutique, Airbnb, Local Stays)</option>
+                </select>
+            </div>
+
+            <!-- Reference Image Upload (Multimodal) -->
+            <div>
+                <label for="reference-image" class="block text-sm font-medium text-gray-700">Reference Image/Map (Optional)</label>
+                <input type="file" id="reference-image" accept="image/*"
+                       class="mt-1 block w-full text-sm text-gray-700
+                       file:mr-4 file:py-2 file:px-4
+                       file:rounded-lg file:border-0
+                       file:text-sm file:font-semibold
+                       file:bg-emerald-50 file:text-emerald-700
+                       hover:file:bg-emerald-100 cursor-pointer">
+                <p class="mt-1 text-xs text-gray-400">Upload a photo or map to get location-specific suggestions and route planning</p>
+                <div id="image-preview-container" class="mt-2 hidden">
+                    <div class="inline-block">
+                        <img id="image-preview" class="max-h-32 w-auto object-contain rounded-lg border-2 border-gray-300 p-1" alt="Image preview">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <button type="submit" id="generate-button"
+                    class="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+                Generate Trip Plan
+            </button>
+        </form>
+
+        <!-- Status Message -->
+        <div id="status-message" class="mt-4 hidden p-3 rounded-lg"></div>
+
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="hidden mt-6 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+            <p class="mt-2 text-gray-600">Creating your personalized trip plan...</p>
+        </div>
+
+        <!-- Output Area -->
+        <div id="output-area" class="mt-6 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Your Personalized Trip Plan</h2>
+                <button id="download-pdf-button"
+                        class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow hover:bg-emerald-700 transition-colors duration-200">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export to PDF
+                </button>
+            </div>
+            <div id="trip-plan" class="bg-white border border-gray-200 rounded-lg p-6">
+                <!-- Trip plan content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if user came from index.html - redirect if not
+        document.addEventListener('DOMContentLoaded', function() {
+            const indexPage = 'index.html';
+            const allowedAccess = sessionStorage.getItem('allowedAccess');
+            
+            if (allowedAccess !== 'true') {
+                window.location.replace(indexPage);
+                return;
+            }
+            
+            // Clear the flag after checking to prevent reuse
+            sessionStorage.removeItem('allowedAccess');
+        });
+
+        const form = document.getElementById('trip-form');
+        const destinationInput = document.getElementById('destination');
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const durationInput = document.getElementById('duration');
+        const budgetInput = document.getElementById('budget');
+        const interestsInput = document.getElementById('interests');
+        const travelersInput = document.getElementById('travelers');
+        const accommodationInput = document.getElementById('accommodation');
+        const referenceImageInput = document.getElementById('reference-image');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const generateButton = document.getElementById('generate-button');
+        const outputArea = document.getElementById('output-area');
+        const downloadPdfButton = document.getElementById('download-pdf-button');
+        const statusMessage = document.getElementById('status-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const apiKeyWarning = document.getElementById('api-key-warning');
+        const tripPlan = document.getElementById('trip-plan');
+
+        // Get API key from config.js
+        let apiKey;
+        try {
+            apiKey = CONFIG.getApiKey();
+            if (!apiKey || apiKey.trim() === '' || apiKey.length < 20) {
+                apiKey = '';
+            }
+        } catch (error) {
+            console.error('Error decoding API key:', error);
+            apiKey = '';
+        }
+
+        const MAX_RETRIES = 3;
+        const MODEL_OPTIONS = [
+            { name: 'gemini-1.5-flash', v1: false },
+            { name: 'gemini-1.5-pro', v1: false }
+        ];
+
+        // Check if API key is set
+        if (!apiKey || apiKey.trim() === '') {
+            apiKeyWarning.classList.remove('hidden');
+        }
+
+        // Calculate duration when dates change
+        function calculateDuration() {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+            
+            if (startDateInput.value && endDateInput.value && startDate <= endDate) {
+                const diffTime = Math.abs(endDate - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                durationInput.value = `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+            } else {
+                durationInput.value = '';
+            }
+        }
+
+        startDateInput.addEventListener('change', calculateDuration);
+        endDateInput.addEventListener('change', calculateDuration);
+
+        // Reference image preview
+        let referenceImageBase64 = null;
+        referenceImageInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('Please upload an image file.');
+                    referenceImageInput.value = '';
+                    return;
+                }
+                
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('Image file size should be less than 10MB.');
+                    referenceImageInput.value = '';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataUrl = e.target.result;
+                    referenceImageBase64 = dataUrl.split(',')[1];
+                    imagePreview.src = dataUrl;
+                    imagePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                referenceImageBase64 = null;
+                imagePreviewContainer.classList.add('hidden');
+                imagePreview.src = '';
+            }
+        });
+
+        /**
+         * Shows loading state
+         */
+        function showLoading() {
+            generateButton.disabled = true;
+            generateButton.innerHTML = `
+                <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Generating...
+            `;
+            loadingIndicator.classList.remove('hidden');
+            outputArea.classList.add('hidden');
+            statusMessage.classList.add('hidden');
+        }
+
+        /**
+         * Hides loading state
+         */
+        function hideLoading() {
+            generateButton.disabled = false;
+            generateButton.innerHTML = `
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+                Generate Trip Plan
+            `;
+            loadingIndicator.classList.add('hidden');
+        }
+
+        /**
+         * Shows status message
+         */
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = isError 
+                ? 'mt-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg' 
+                : 'mt-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg';
+            statusMessage.classList.remove('hidden');
+        }
+
+        /**
+         * Generates trip plan using AI API
+         */
+        async function generateTripPlan(destination, startDate, endDate, duration, budget, interests, travelers, accommodation, referenceImage, attempt = 1, modelIndex = 0) {
+            if (!apiKey || apiKey.trim() === '') {
+                throw new Error('API key is not set. Please add your Google Generative AI API key in config.js.');
+            }
+
+            if (modelIndex >= MODEL_OPTIONS.length) {
+                throw new Error('All available models failed. Please check your API key and model availability.');
+            }
+
+            const currentModelConfig = MODEL_OPTIONS[modelIndex];
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModelConfig.name}:generateContent?key=${apiKey}`;
+
+            let prompt = `You are an expert travel planner. Create a comprehensive, personalized trip plan based on the following details:
+
+DESTINATION: ${destination}
+TRAVEL DATES: ${startDate} to ${endDate}
+DURATION: ${duration}
+BUDGET: $${budget} per person (total budget: $${budget * travelers})
+NUMBER OF TRAVELERS: ${travelers}
+INTERESTS & STYLE: ${interests}
+${accommodation ? `ACCOMMODATION PREFERENCE: ${accommodation}` : ''}
+
+Please create a detailed trip plan that includes:
+
+1. **DAY-BY-DAY ITINERARY**
+   - For each day, provide:
+     - Morning activities/attractions
+     - Afternoon activities/attractions
+     - Evening activities/attractions
+     - Recommended restaurants/cafes for each meal
+     - Travel tips and notes
+
+2. **ACCOMMODATION RECOMMENDATIONS**
+   - 3-5 specific places to stay (hotels, hostels, or unique stays)
+   - Include approximate prices per night
+   - Brief description of each
+   - Location advantages
+
+3. **RESTAURANT & DINING RECOMMENDATIONS**
+   - Breakfast spots
+   - Lunch options
+   - Dinner restaurants
+   - Local specialties to try
+   - Budget-friendly and splurge options
+
+4. **MUST-VISIT ATTRACTIONS**
+   - Top attractions based on interests
+   - Entry fees and booking tips
+   - Best times to visit
+   - How to get there
+
+5. **LOCAL EVENTS & HAPPENINGS**
+   - Events during the travel dates (if known)
+   - Seasonal activities
+   - Cultural experiences
+   - Festivals or local celebrations
+
+6. **HIDDEN GEMS & OFF-THE-BEATEN-PATH**
+   - Lesser-known attractions
+   - Local favorites
+   - Unique experiences
+   - Photo spots
+
+7. **BUDGET BREAKDOWN**
+   - Estimated costs for accommodation, food, activities, transportation
+   - Money-saving tips
+   - Free activities
+
+8. **TRAVEL TIPS**
+   - Best transportation methods
+   - Local customs and etiquette
+   - Safety tips
+   - Packing suggestions
+   - Language tips
+
+Format the response in a clear, organized structure with sections and bullet points. Make it practical and actionable.`;
+
+            // Add image context if provided
+            if (referenceImage) {
+                prompt += `\n\nIMPORTANT: The user has provided a reference image/map. Analyze the image and provide location-specific suggestions, nearby attractions, and optimized routes based on what you see in the image.`;
+            }
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: prompt }
+                    ]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 4096,
+                }
+            };
+
+            // Add image if provided (multimodal support)
+            if (referenceImage) {
+                payload.contents[0].parts.push({
+                    inlineData: {
+                        mimeType: "image/jpeg",
+                        data: referenceImage
+                    }
+                });
+            }
+
+            try {
+                console.log(`Generating trip plan using model: ${currentModelConfig.name}...`);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseData = await response.json();
+                console.log('API Response status:', response.status);
+
+                if (!response.ok) {
+                    console.error('API Error Response:', responseData);
+                    let errorMessage = responseData.error?.message || responseData.message || `HTTP error! status: ${response.status}`;
+                    
+                    if (errorMessage.includes('not found') || errorMessage.includes('not supported') || response.status === 404) {
+                        console.log(`Model ${currentModelConfig.name} not available, trying next model...`);
+                        if (modelIndex < MODEL_OPTIONS.length - 1) {
+                            return generateTripPlan(destination, startDate, endDate, duration, budget, interests, travelers, accommodation, referenceImage, 1, modelIndex + 1);
+                        }
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+
+                if (responseData.candidates && responseData.candidates.length > 0 && responseData.candidates[0].content) {
+                    const generatedText = responseData.candidates[0].content.parts[0].text;
+                    return generatedText;
+                } else {
+                    console.error('Unexpected API response format:', responseData);
+                    throw new Error("API did not return text in expected format.");
+                }
+            } catch (error) {
+                console.error(`Attempt ${attempt} failed with model ${currentModelConfig.name}:`, error);
+                if (error.message.includes('API key')) {
+                    throw error;
+                }
+                
+                if (error.message.includes('not found') || error.message.includes('not supported')) {
+                    if (modelIndex < MODEL_OPTIONS.length - 1) {
+                        return generateTripPlan(destination, startDate, endDate, duration, budget, interests, travelers, accommodation, referenceImage, 1, modelIndex + 1);
+                    }
+                }
+                
+                if (attempt < MAX_RETRIES) {
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return generateTripPlan(destination, startDate, endDate, duration, budget, interests, travelers, accommodation, referenceImage, attempt + 1, modelIndex);
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        /**
+         * Renders the trip plan
+         */
+        function renderTripPlan(tripPlanText, destination, startDate, endDate) {
+            // Convert markdown-style formatting to HTML
+            let html = tripPlanText
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3 class="text-xl font-bold text-gray-800 mt-6 mb-3">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold text-gray-800 mt-8 mb-4">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold text-gray-800 mt-8 mb-4">$1</h1>')
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-800">$1</strong>')
+                // Lists
+                .replace(/^\- (.*$)/gim, '<li class="ml-4 mb-1">$1</li>')
+                .replace(/^\d+\. (.*$)/gim, '<li class="ml-4 mb-1">$1</li>')
+                // Paragraphs
+                .split('\n\n')
+                .map(para => {
+                    const trimmed = para.trim();
+                    if (!trimmed) return '';
+                    if (trimmed.startsWith('<')) return trimmed; // Already HTML
+                    return `<p class="mb-4 text-gray-700 leading-relaxed">${trimmed}</p>`;
+                })
+                .join('');
+
+            // Wrap lists
+            html = html.replace(/(<li.*<\/li>)/gs, '<ul class="list-disc ml-6 mb-4 space-y-1">$1</ul>');
+
+            // Add header info
+            const headerHtml = `
+                <div class="mb-6 pb-4 border-b-2 border-emerald-200">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">Trip Plan: ${destination}</h1>
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-600">
+                        <span><strong>Dates:</strong> ${startDate} to ${endDate}</span>
+                    </div>
+                </div>
+            `;
+
+            tripPlan.innerHTML = headerHtml + html;
+        }
+
+        /**
+         * Exports trip plan to PDF
+         */
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const destination = destinationInput.value;
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            const date = new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            // Get trip plan text
+            const tripPlanText = tripPlan.textContent || tripPlan.innerText;
+
+            doc.setFont('helvetica');
+            
+            // Title
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Trip Plan: ${destination}`, 105, 20, { align: 'center' });
+            
+            // Dates
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${startDate} to ${endDate}`, 105, 28, { align: 'center' });
+            doc.text(`Generated: ${date}`, 105, 35, { align: 'center' });
+            
+            // Content
+            let yPos = 45;
+            doc.setFontSize(10);
+            
+            const paragraphs = tripPlanText.split('\n').filter(p => p.trim());
+            
+            paragraphs.forEach(para => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                const lines = doc.splitTextToSize(para.trim(), 180);
+                lines.forEach(line => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.text(line, 15, yPos);
+                    yPos += 5;
+                });
+                
+                yPos += 2;
+            });
+            
+            // Save PDF
+            const fileName = `TripPlan_${destination.replace(/\s+/g, '_')}_${date.replace(/\s+/g, '_')}.pdf`;
+            doc.save(fileName);
+        }
+
+        /**
+         * Form submission handler
+         */
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!apiKey || apiKey.trim() === '') {
+                showStatus("Please add your Google Generative AI API key in config.js to generate trip plans.", true);
+                return;
+            }
+            
+            const destination = destinationInput.value.trim();
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            const budget = parseFloat(budgetInput.value);
+            const interests = interestsInput.value.trim();
+            const travelers = parseInt(travelersInput.value);
+            const accommodation = accommodationInput.value;
+            const duration = durationInput.value;
+
+            if (!destination || !startDate || !endDate || !budget || !interests || !travelers) {
+                showStatus("Please fill in all required fields.", true);
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                showStatus("End date must be after start date.", true);
+                return;
+            }
+
+            if (budget <= 0) {
+                showStatus("Budget must be greater than 0.", true);
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const generatedText = await generateTripPlan(
+                    destination, 
+                    startDate, 
+                    endDate, 
+                    duration, 
+                    budget, 
+                    interests, 
+                    travelers, 
+                    accommodation,
+                    referenceImageBase64
+                );
+                
+                renderTripPlan(generatedText, destination, startDate, endDate);
+                outputArea.classList.remove('hidden');
+                showStatus('Successfully generated your personalized trip plan!', false);
+            } catch (error) {
+                console.error('Error generating trip plan:', error);
+                showStatus(`Error: ${error.message}`, true);
+                outputArea.classList.add('hidden');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // PDF export button handler
+        downloadPdfButton.addEventListener('click', () => {
+            try {
+                exportToPDF();
+                showStatus("PDF exported successfully!", false);
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                showStatus(`Error exporting PDF: ${error.message}`, true);
+            }
+        });
+    </script>
+</body>
+</html>
+
