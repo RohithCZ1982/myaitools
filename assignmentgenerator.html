@@ -100,28 +100,45 @@
                        class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
             </div>
 
-            <!-- Example Question -->
-            <div>
+            <!-- Assignment Checkbox -->
+            <div class="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" id="assignment-checkbox" checked
+                           class="w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                    <span class="ml-3 text-sm font-medium text-gray-700">Assignment (Generate Questions)</span>
+                </label>
+                <p class="mt-2 text-xs text-gray-500 ml-8">Uncheck to generate a summary instead of questions</p>
+            </div>
+
+            <!-- Example Question/Prompt -->
+            <div id="example-question-container">
                 <label for="example-question" class="block text-sm font-medium text-gray-700">Example Question <span class="text-red-500">*</span></label>
                 <textarea id="example-question" required rows="4" placeholder="e.g., Solve for x: 2x + 5 = 15"
                        class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150"></textarea>
                 <p class="mt-1 text-xs text-gray-400">Provide an example question that represents the type and style of questions you want generated.</p>
             </div>
 
-            <!-- Difficulty Level -->
+            <!-- Prompt Input (for Summary mode) -->
+            <div id="prompt-container" class="hidden">
+                <label for="prompt-input" class="block text-sm font-medium text-gray-700">Topic/Prompt <span class="text-red-500">*</span></label>
+                <textarea id="prompt-input" rows="4" placeholder="e.g., Explain the water cycle, Describe photosynthesis, etc."
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150"></textarea>
+                <p class="mt-1 text-xs text-gray-400">Enter the topic or prompt you want summarized.</p>
+            </div>
+
+            <!-- Difficulty/Level Dropdown -->
             <div>
-                <label for="difficulty" class="block text-sm font-medium text-gray-700">Question Difficulty <span class="text-red-500">*</span></label>
+                <label for="difficulty" id="difficulty-label" class="block text-sm font-medium text-gray-700">Question Difficulty <span class="text-red-500">*</span></label>
                 <select id="difficulty" required
                        class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
-                    <option value="">Select difficulty level</option>
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
+                    <option value="easy" selected>Easy</option>
+                    <option value="normal">Normal</option>
+                    <option value="difficult">Difficult</option>
                 </select>
             </div>
 
             <!-- Number of Questions -->
-            <div>
+            <div id="num-questions-container">
                 <label for="num-questions" class="block text-sm font-medium text-gray-700">Number of Questions <span class="text-red-500">*</span></label>
                 <input type="number" id="num-questions" required min="1" max="50" value="5" placeholder="e.g., 5"
                        class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
@@ -185,8 +202,14 @@
         const classInput = document.getElementById('class');
         const subjectModuleInput = document.getElementById('subject-module');
         const exampleQuestionInput = document.getElementById('example-question');
+        const promptInput = document.getElementById('prompt-input');
+        const assignmentCheckbox = document.getElementById('assignment-checkbox');
+        const exampleQuestionContainer = document.getElementById('example-question-container');
+        const promptContainer = document.getElementById('prompt-container');
         const difficultyInput = document.getElementById('difficulty');
+        const difficultyLabel = document.getElementById('difficulty-label');
         const numQuestionsInput = document.getElementById('num-questions');
+        const numQuestionsContainer = document.getElementById('num-questions-container');
         const generateButton = document.getElementById('generate-button');
         const outputArea = document.getElementById('output-area');
         const downloadPdfButton = document.getElementById('download-pdf-button');
@@ -257,6 +280,71 @@
         }
 
         /**
+         * Toggle between Assignment and Summary modes
+         */
+        function toggleMode() {
+            const isAssignment = assignmentCheckbox.checked;
+            
+            if (isAssignment) {
+                // Assignment mode - show question input, difficulty options, number of questions
+                exampleQuestionContainer.classList.remove('hidden');
+                promptContainer.classList.add('hidden');
+                numQuestionsContainer.classList.remove('hidden');
+                
+                // Update dropdown for assignment mode
+                difficultyLabel.textContent = 'Question Difficulty *';
+                difficultyInput.innerHTML = `
+                    <option value="easy" selected>Easy</option>
+                    <option value="normal">Normal</option>
+                    <option value="difficult">Difficult</option>
+                `;
+                
+                // Make example question required, prompt not required
+                exampleQuestionInput.required = true;
+                promptInput.required = false;
+                
+                // Update button text
+                generateButton.innerHTML = `
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Generate Assignment Sheet
+                `;
+            } else {
+                // Summary mode - show prompt input, summary level options, hide number of questions
+                exampleQuestionContainer.classList.add('hidden');
+                promptContainer.classList.remove('hidden');
+                numQuestionsContainer.classList.add('hidden');
+                
+                // Update dropdown for summary mode
+                difficultyLabel.textContent = 'Summary Level *';
+                difficultyInput.innerHTML = `
+                    <option value="short" selected>Short</option>
+                    <option value="summary">Summary</option>
+                    <option value="indetail">In Detail</option>
+                `;
+                
+                // Make prompt required, example question not required
+                promptInput.required = true;
+                exampleQuestionInput.required = false;
+                
+                // Update button text
+                generateButton.innerHTML = `
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Generate Summary
+                `;
+            }
+        }
+
+        // Add event listener for checkbox
+        assignmentCheckbox.addEventListener('change', toggleMode);
+        
+        // Initialize mode on page load
+        toggleMode();
+
+        /**
          * Shows loading state
          */
         function showLoading() {
@@ -275,11 +363,12 @@
          */
         function hideLoading() {
             generateButton.disabled = false;
+            const isAssignment = assignmentCheckbox.checked;
             generateButton.innerHTML = `
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                 </svg>
-                Generate Assignment Sheet
+                ${isAssignment ? 'Generate Assignment Sheet' : 'Generate Summary'}
             `;
             loadingIndicator.classList.add('hidden');
         }
@@ -316,23 +405,54 @@
         }
 
         /**
-         * Generates questions using AI API (supports Google Gemini, OpenAI, or Anthropic)
+         * Generates questions or summary using AI API (supports Google Gemini, OpenAI, or Anthropic)
          */
-        async function generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions, attempt = 1, modelIndex = 0) {
-            const prompt = `You are an expert educator creating an assignment sheet. Generate ${numQuestions} questions for ${classValue} students studying ${subjectModule}.
+        async function generateContent(classValue, subjectModule, isAssignment, exampleQuestionOrPrompt, difficultyOrLevel, numQuestions, attempt = 1, modelIndex = 0) {
+            let prompt;
+            
+            if (isAssignment) {
+                // Assignment mode - generate questions
+                prompt = `You are an expert educator creating an assignment sheet. Generate exactly ${numQuestions} questions for ${classValue} students studying ${subjectModule}.
 
 Example question style:
-${exampleQuestion}
+${exampleQuestionOrPrompt}
 
 Requirements:
-- Difficulty level: ${difficulty}
+- Difficulty level: ${difficultyOrLevel}
 - All questions should be similar in style and format to the example question
 - Questions should be appropriate for ${classValue} level
 - Each question should be clear, well-formatted, and educational
-- Number each question starting from 1
-- Format the output as a clean list where each question is on its own line or clearly separated
+- Number each question starting from 1 using the format: "1. [question text]"
+- Do NOT include any headings, titles, or introductory text
+- Do NOT include explanations or answers
+- Output ONLY the numbered questions, one per line
+- Format: Start each question with its number followed by a period and space (e.g., "1. ", "2. ", etc.)
 
-Generate exactly ${numQuestions} questions now:`;
+Generate exactly ${numQuestions} questions in this format:`;
+            } else {
+                // Summary mode - generate summary
+                const levelMap = {
+                    'short': 'brief and concise',
+                    'summary': 'moderate length with key points',
+                    'indetail': 'comprehensive and detailed'
+                };
+                const levelDescription = levelMap[difficultyOrLevel] || 'moderate length';
+                
+                prompt = `You are an expert educator creating educational content for ${classValue} students studying ${subjectModule}.
+
+Topic/Prompt:
+${exampleQuestionOrPrompt}
+
+Requirements:
+- Create a ${levelDescription} summary of the topic
+- The summary should be appropriate for ${classValue} level students
+- Make it clear, well-structured, and educational
+- Use proper formatting with paragraphs
+- Do NOT include headings or titles
+- Focus on key concepts and important information
+
+Generate the summary:`;
+            }
 
             // Try OpenAI first if enabled
             if (USE_OPENAI && openAIApiKey) {
@@ -391,7 +511,7 @@ Generate exactly ${numQuestions} questions now:`;
                     if (errorMessage.includes('not found') || errorMessage.includes('not supported') || errorMessage.includes('Call ListModels') || response.status === 404) {
                         console.log(`Model ${currentModelConfig.name} (${currentModelConfig.v1 ? 'v1' : 'v1beta'}) not available, trying next model...`);
                         if (modelIndex < MODEL_OPTIONS.length - 1) {
-                            return generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions, 1, modelIndex + 1);
+                            return generateContent(classValue, subjectModule, isAssignment, exampleQuestionOrPrompt, difficultyOrLevel, numQuestions, 1, modelIndex + 1);
                         } else {
                             // If all models failed, suggest using alternative API
                             throw new Error(`All Gemini models failed. Error: ${errorMessage}. Consider using OpenAI or Anthropic API instead. See code comments for setup instructions.`);
@@ -417,14 +537,14 @@ Generate exactly ${numQuestions} questions now:`;
                 // If model not found error, try next model
                 if (error.message.includes('not found') || error.message.includes('not supported')) {
                     if (modelIndex < MODEL_OPTIONS.length - 1) {
-                        return generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions, 1, modelIndex + 1);
+                        return generateContent(classValue, subjectModule, isAssignment, exampleQuestionOrPrompt, difficultyOrLevel, numQuestions, 1, modelIndex + 1);
                     }
                 }
                 
                 if (attempt < MAX_RETRIES) {
                     const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
                     await new Promise(resolve => setTimeout(resolve, delay));
-                    return generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions, attempt + 1, modelIndex);
+                    return generateContent(classValue, subjectModule, isAssignment, exampleQuestionOrPrompt, difficultyOrLevel, numQuestions, attempt + 1, modelIndex);
                 } else {
                     throw error;
                 }
@@ -538,35 +658,154 @@ Generate exactly ${numQuestions} questions now:`;
          * Parses the generated text into individual questions
          */
         function parseQuestions(text) {
-            // Split by common question patterns
-            const lines = text.split('\n').filter(line => line.trim());
-            const questions = [];
+            // Remove common headings and non-question text
+            const headingPatterns = [
+                /^assignment\s+sheet/i,
+                /^questions?:?/i,
+                /^generated\s+questions?:?/i,
+                /^here\s+are\s+the\s+questions?:?/i,
+                /^the\s+questions?\s+are:?/i,
+                /^below\s+are\s+the\s+questions?:?/i,
+                /^class:?/i,
+                /^subject:?/i,
+                /^module:?/i,
+                /^difficulty:?/i,
+                /^requirements?:?/i
+            ];
             
-            for (let line of lines) {
-                line = line.trim();
-                // Skip empty lines
-                if (!line) continue;
+            // Split by lines and filter
+            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            const questions = [];
+            let currentQuestion = '';
+            
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
                 
-                // Check if line looks like a question (starts with number, Q, or question mark)
-                if (/^\d+[\.\)]\s/.test(line) || /^[Qq](\d+)?[\.\):]\s/.test(line) || line.includes('?') || line.length > 20) {
-                    // Remove leading numbers/letters and formatting
-                    let question = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[Qq](\d+)?[\.\):]\s*/, '').trim();
-                    if (question) {
-                        questions.push(question);
+                // Skip lines that are clearly headings
+                let isHeading = false;
+                for (let pattern of headingPatterns) {
+                    if (pattern.test(line) && line.length < 100) {
+                        isHeading = true;
+                        break;
                     }
-                } else if (questions.length > 0) {
-                    // Append to last question if it's a continuation
-                    questions[questions.length - 1] += ' ' + line;
+                }
+                if (isHeading) continue;
+                
+                // Check if line starts with a number (question format: "1. ", "2. ", etc.)
+                const numberedQuestionMatch = line.match(/^(\d+)[\.\)]\s+(.+)$/);
+                if (numberedQuestionMatch) {
+                    // If we have a previous question, save it
+                    if (currentQuestion.trim()) {
+                        questions.push(currentQuestion.trim());
+                        currentQuestion = '';
+                    }
+                    // Start new question
+                    currentQuestion = numberedQuestionMatch[2];
+                } 
+                // Check for Q1, Q2 format
+                else if (/^[Qq](\d+)[\.\):]\s+(.+)$/.test(line)) {
+                    if (currentQuestion.trim()) {
+                        questions.push(currentQuestion.trim());
+                        currentQuestion = '';
+                    }
+                    currentQuestion = line.replace(/^[Qq]\d+[\.\):]\s*/, '');
+                }
+                // Check if line looks like a question (has question mark and reasonable length)
+                else if (line.includes('?') && line.length > 15 && line.length < 500) {
+                    // If it doesn't start with a number, it might be a continuation or standalone
+                    if (currentQuestion.trim()) {
+                        // Check if it's a continuation (no number, reasonable length)
+                        if (!/^\d+[\.\)]/.test(line)) {
+                            currentQuestion += ' ' + line;
+                        } else {
+                            // It's a new question
+                            questions.push(currentQuestion.trim());
+                            currentQuestion = line.replace(/^\d+[\.\)]\s*/, '');
+                        }
+                    } else {
+                        // Start new question (might be unnumbered)
+                        currentQuestion = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[Qq]\d+[\.\):]\s*/, '');
+                    }
+                }
+                // If we have a current question and this line doesn't look like a new question, append it
+                else if (currentQuestion.trim() && line.length > 0 && line.length < 300) {
+                    // Append continuation (but not if it looks like a new numbered question)
+                    if (!/^\d+[\.\)]\s/.test(line) && !/^[Qq]\d+[\.\):]\s/.test(line)) {
+                        currentQuestion += ' ' + line;
+                    } else {
+                        // It's a new question
+                        questions.push(currentQuestion.trim());
+                        currentQuestion = line.replace(/^\d+[\.\)]\s*/, '').replace(/^[Qq]\d+[\.\):]\s*/, '');
+                    }
                 }
             }
             
-            // If parsing didn't work well, split by double newlines or question marks
-            if (questions.length === 0) {
-                const parts = text.split(/\n\n+/);
-                questions.push(...parts.filter(p => p.trim().length > 10));
+            // Add the last question if exists
+            if (currentQuestion.trim()) {
+                questions.push(currentQuestion.trim());
             }
             
-            return questions.filter(q => q.trim().length > 5);
+            // Filter out questions that are too short or look like headings
+            return questions
+                .filter(q => {
+                    const trimmed = q.trim();
+                    // Must be at least 10 characters
+                    if (trimmed.length < 10) return false;
+                    // Should contain some question-like content (question mark or question words)
+                    if (!trimmed.includes('?') && 
+                        !/\b(what|where|when|who|why|how|solve|calculate|find|determine|explain|describe|list|name)\b/i.test(trimmed)) {
+                        // Might still be valid if it's long enough
+                        return trimmed.length > 20;
+                    }
+                    // Filter out common heading patterns
+                    for (let pattern of headingPatterns) {
+                        if (pattern.test(trimmed) && trimmed.length < 100) return false;
+                    }
+                    return true;
+                })
+                .map(q => q.trim());
+        }
+
+        /**
+         * Renders the summary sheet
+         */
+        function renderSummarySheet(classValue, subjectModule, summaryText, level) {
+            const date = new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            const levelLabels = {
+                'short': 'Short Summary',
+                'summary': 'Summary',
+                'indetail': 'Detailed Summary'
+            };
+
+            let html = `
+                <div style="margin-bottom: 2rem;">
+                    <h1 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem; text-align: center;">${levelLabels[level] || 'Summary'}</h1>
+                    <div style="text-align: center; color: #6b7280; margin-bottom: 1rem;">
+                        <p style="margin: 0.25rem 0;"><strong>Class:</strong> ${classValue}</p>
+                        <p style="margin: 0.25rem 0;"><strong>Subject Module:</strong> ${subjectModule}</p>
+                        <p style="margin: 0.25rem 0;"><strong>Date:</strong> ${date}</p>
+                    </div>
+                </div>
+                <div style="margin-top: 2rem;">
+                    <div style="line-height: 1.8; color: #374151;">
+                        ${summaryText.split('\n').map(para => {
+                            const trimmed = para.trim();
+                            if (!trimmed) return '';
+                            return `<p style="margin-bottom: 1rem;">${trimmed}</p>`;
+                        }).join('')}
+                    </div>
+                </div>
+                <div style="margin-top: 2rem; padding-top: 1rem; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 0.875rem;">
+                    <p>End of Summary</p>
+                </div>
+            `;
+
+            assignmentSheet.innerHTML = html;
         }
 
         /**
@@ -612,13 +851,13 @@ Generate exactly ${numQuestions} questions now:`;
         }
 
         /**
-         * Exports assignment sheet to PDF
+         * Exports assignment sheet or summary to PDF
          */
         function exportToPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
-            // Get assignment content
+            const isAssignment = assignmentCheckbox.checked;
             const classValue = classInput.value;
             const subjectModule = subjectModuleInput.value;
             const date = new Date().toLocaleDateString('en-US', { 
@@ -627,65 +866,119 @@ Generate exactly ${numQuestions} questions now:`;
                 day: 'numeric' 
             });
 
-            // Get questions from the rendered sheet
-            const questionItems = assignmentSheet.querySelectorAll('.question-item');
-            const questions = Array.from(questionItems).map(item => {
-                const text = item.textContent.trim();
-                return text.replace(/^\d+\.\s*/, '');
-            });
-
             // Set font
             doc.setFont('helvetica');
             
-            // Title
-            doc.setFontSize(18);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Assignment Sheet', 105, 20, { align: 'center' });
-            
-            // Class, Subject, Date
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Class: ${classValue}`, 105, 30, { align: 'center' });
-            doc.text(`Subject Module: ${subjectModule}`, 105, 36, { align: 'center' });
-            doc.text(`Date: ${date}`, 105, 42, { align: 'center' });
-            
-            // Questions
-            let yPos = 55;
-            doc.setFontSize(11);
-            
-            questions.forEach((question, index) => {
-                // Check if we need a new page
-                if (yPos > 270) {
-                    doc.addPage();
-                    yPos = 20;
-                }
+            if (isAssignment) {
+                // Export questions
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Assignment Sheet', 105, 20, { align: 'center' });
                 
-                // Split long questions into multiple lines
-                const lines = doc.splitTextToSize(`${index + 1}. ${question}`, 180);
+                // Class, Subject, Date
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Class: ${classValue}`, 105, 30, { align: 'center' });
+                doc.text(`Subject Module: ${subjectModule}`, 105, 36, { align: 'center' });
+                doc.text(`Date: ${date}`, 105, 42, { align: 'center' });
                 
-                lines.forEach((line, lineIndex) => {
+                // Get questions from the rendered sheet
+                const questionItems = assignmentSheet.querySelectorAll('.question-item');
+                const questions = Array.from(questionItems).map(item => {
+                    const text = item.textContent.trim();
+                    return text.replace(/^\d+\.\s*/, '');
+                });
+                
+                // Questions
+                let yPos = 55;
+                doc.setFontSize(11);
+                
+                questions.forEach((question, index) => {
                     if (yPos > 270) {
                         doc.addPage();
                         yPos = 20;
                     }
-                    doc.text(line, 15, yPos);
-                    yPos += 6;
+                    
+                    const lines = doc.splitTextToSize(`${index + 1}. ${question}`, 180);
+                    
+                    lines.forEach((line) => {
+                        if (yPos > 270) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        doc.text(line, 15, yPos);
+                        yPos += 6;
+                    });
+                    
+                    yPos += 4;
                 });
                 
-                yPos += 4; // Space between questions
-            });
-            
-            // Footer
-            const pageCount = doc.internal.pages.length - 1;
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setFontSize(9);
-                doc.text('Good luck with your assignment!', 105, 285, { align: 'center' });
+                // Footer
+                const pageCount = doc.internal.pages.length - 1;
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(9);
+                    doc.text('Good luck with your assignment!', 105, 285, { align: 'center' });
+                }
+                
+                const fileName = `Assignment_${classValue.replace(/\s+/g, '_')}_${date.replace(/\s+/g, '_')}.pdf`;
+                doc.save(fileName);
+            } else {
+                // Export summary
+                const level = difficultyInput.value;
+                const levelLabels = {
+                    'short': 'Short Summary',
+                    'summary': 'Summary',
+                    'indetail': 'Detailed Summary'
+                };
+                
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text(levelLabels[level] || 'Summary', 105, 20, { align: 'center' });
+                
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Class: ${classValue}`, 105, 30, { align: 'center' });
+                doc.text(`Subject Module: ${subjectModule}`, 105, 36, { align: 'center' });
+                doc.text(`Date: ${date}`, 105, 42, { align: 'center' });
+                
+                // Get summary text
+                const summaryText = assignmentSheet.textContent || assignmentSheet.innerText;
+                const paragraphs = summaryText.split('\n').filter(p => p.trim());
+                
+                let yPos = 55;
+                doc.setFontSize(11);
+                
+                paragraphs.forEach(para => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    const lines = doc.splitTextToSize(para.trim(), 180);
+                    lines.forEach(line => {
+                        if (yPos > 270) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        doc.text(line, 15, yPos);
+                        yPos += 6;
+                    });
+                    
+                    yPos += 4; // Space between paragraphs
+                });
+                
+                // Footer
+                const pageCount = doc.internal.pages.length - 1;
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(9);
+                    doc.text('End of Summary', 105, 285, { align: 'center' });
+                }
+                
+                const fileName = `Summary_${classValue.replace(/\s+/g, '_')}_${date.replace(/\s+/g, '_')}.pdf`;
+                doc.save(fileName);
             }
-            
-            // Save PDF
-            const fileName = `Assignment_${classValue.replace(/\s+/g, '_')}_${date.replace(/\s+/g, '_')}.pdf`;
-            doc.save(fileName);
         }
 
         /**
@@ -699,44 +992,70 @@ Generate exactly ${numQuestions} questions now:`;
                 return;
             }
             
+            const isAssignment = assignmentCheckbox.checked;
             const classValue = classInput.value.trim();
             const subjectModule = subjectModuleInput.value.trim();
-            const exampleQuestion = exampleQuestionInput.value.trim();
-            const difficulty = difficultyInput.value;
-            const numQuestions = parseInt(numQuestionsInput.value);
-
-            if (!classValue || !subjectModule || !exampleQuestion || !difficulty || !numQuestions) {
-                showStatus("Please fill in all required fields.", true);
-                return;
-            }
-
-            if (numQuestions < 1 || numQuestions > 50) {
-                showStatus("Number of questions must be between 1 and 50.", true);
-                return;
+            const difficultyOrLevel = difficultyInput.value;
+            
+            let exampleQuestionOrPrompt;
+            let numQuestions = 1; // Default for summary
+            
+            if (isAssignment) {
+                exampleQuestionOrPrompt = exampleQuestionInput.value.trim();
+                numQuestions = parseInt(numQuestionsInput.value);
+                
+                if (!classValue || !subjectModule || !exampleQuestionOrPrompt || !difficultyOrLevel || !numQuestions) {
+                    showStatus("Please fill in all required fields.", true);
+                    return;
+                }
+                
+                if (numQuestions < 1 || numQuestions > 50) {
+                    showStatus("Number of questions must be between 1 and 50.", true);
+                    return;
+                }
+            } else {
+                exampleQuestionOrPrompt = promptInput.value.trim();
+                
+                if (!classValue || !subjectModule || !exampleQuestionOrPrompt || !difficultyOrLevel) {
+                    showStatus("Please fill in all required fields.", true);
+                    return;
+                }
             }
 
             showLoading();
 
             try {
-                const generatedText = await generateQuestions(classValue, subjectModule, exampleQuestion, difficulty, numQuestions);
-                const questions = parseQuestions(generatedText);
+                const generatedText = await generateContent(classValue, subjectModule, isAssignment, exampleQuestionOrPrompt, difficultyOrLevel, numQuestions);
+                console.log('Generated text:', generatedText); // Debug log
                 
-                // Ensure we have the right number of questions
-                if (questions.length < numQuestions) {
-                    // If we got fewer questions, pad with placeholders or use what we have
-                    console.warn(`Generated ${questions.length} questions, requested ${numQuestions}`);
-                }
-                
-                // Take only the requested number
-                const finalQuestions = questions.slice(0, numQuestions);
-                
-                if (finalQuestions.length === 0) {
-                    throw new Error("No questions were generated. Please try again with a different example question.");
-                }
+                if (isAssignment) {
+                    // Parse and render questions
+                    const questions = parseQuestions(generatedText);
+                    console.log('Parsed questions:', questions); // Debug log
+                    console.log(`Found ${questions.length} questions, requested ${numQuestions}`);
+                    
+                    // Ensure we have the right number of questions
+                    if (questions.length < numQuestions) {
+                        console.warn(`Generated ${questions.length} questions, requested ${numQuestions}`);
+                        showStatus(`Warning: Only ${questions.length} questions were parsed. The AI may not have generated enough questions or the format was unclear.`, true);
+                    }
+                    
+                    // Take only the requested number (or all if we have fewer)
+                    const finalQuestions = questions.slice(0, numQuestions);
+                    
+                    if (finalQuestions.length === 0) {
+                        throw new Error("No questions were generated. Please try again with a different example question. The AI response may not have been in the expected format.");
+                    }
 
-                renderAssignmentSheet(classValue, subjectModule, finalQuestions);
-                outputArea.classList.remove('hidden');
-                showStatus(`Successfully generated ${finalQuestions.length} questions!`, false);
+                    renderAssignmentSheet(classValue, subjectModule, finalQuestions);
+                    outputArea.classList.remove('hidden');
+                    showStatus(`Successfully generated ${finalQuestions.length} question${finalQuestions.length !== 1 ? 's' : ''}!`, false);
+                } else {
+                    // Render summary
+                    renderSummarySheet(classValue, subjectModule, generatedText, difficultyOrLevel);
+                    outputArea.classList.remove('hidden');
+                    showStatus('Successfully generated summary!', false);
+                }
             } catch (error) {
                 console.error('Error generating assignment:', error);
                 showStatus(`Error: ${error.message}`, true);
