@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Real Estate Search</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Load API Key Configuration -->
+    <script src="config.js"></script>
+    
+    <!-- Load Inter font and custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6EE7B7;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #34D399;
+        }
+        
+        /* Property listing styling */
+        #property-results {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .property-item {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .property-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col items-center justify-start bg-gray-50">
+
+    <div class="w-full max-w-5xl bg-white shadow-xl rounded-2xl p-6 lg:p-8">
+        <!-- Back Button -->
+        <a href="index.html" 
+           class="inline-flex items-center text-sm text-emerald-600 hover:text-emerald-700 font-medium mb-4 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Home
+        </a>
+        
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">AI Real Estate Search</h1>
+        <p class="text-gray-500 mb-6">Find your perfect property with AI-powered recommendations based on your preferences</p>
+        
+        <!-- API Key Warning -->
+        <div id="api-key-warning" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-yellow-600 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-yellow-800">API Key Required</p>
+                    <p class="text-xs text-yellow-700 mt-1">Please add your Google Generative AI API key in config.js to use this feature.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Form -->
+        <form id="property-form" class="space-y-4">
+            
+            <!-- Location -->
+            <div>
+                <label for="location" class="block text-sm font-medium text-gray-700">Location (City/Area/Neighborhood) <span class="text-red-500">*</span></label>
+                <input type="text" id="location" required placeholder="e.g., Manhattan, New York, Downtown Seattle, Beverly Hills"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Property Type -->
+            <div>
+                <label for="property-type" class="block text-sm font-medium text-gray-700">Property Type <span class="text-red-500">*</span></label>
+                <select id="property-type" required
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                    <option value="">Select property type</option>
+                    <option value="house">House / Single Family Home</option>
+                    <option value="apartment">Apartment / Condo</option>
+                    <option value="townhouse">Townhouse</option>
+                    <option value="villa">Villa</option>
+                    <option value="studio">Studio</option>
+                    <option value="any">Any</option>
+                </select>
+            </div>
+
+            <!-- Budget Range -->
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label for="min-budget" class="block text-sm font-medium text-gray-700">Min Budget <span class="text-red-500">*</span></label>
+                    <div class="mt-1 flex rounded-lg shadow-sm">
+                        <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                            $
+                        </span>
+                        <input type="number" id="min-budget" required min="0" step="1000" placeholder="e.g., 200000"
+                               class="flex-1 block w-full px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                    </div>
+                </div>
+                <div>
+                    <label for="max-budget" class="block text-sm font-medium text-gray-700">Max Budget <span class="text-red-500">*</span></label>
+                    <div class="mt-1 flex rounded-lg shadow-sm">
+                        <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                            $
+                        </span>
+                        <input type="number" id="max-budget" required min="0" step="1000" placeholder="e.g., 500000"
+                               class="flex-1 block w-full px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bedrooms & Bathrooms -->
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label for="bedrooms" class="block text-sm font-medium text-gray-700">Bedrooms</label>
+                    <select id="bedrooms"
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                        <option value="">Any</option>
+                        <option value="1">1 Bedroom</option>
+                        <option value="2">2 Bedrooms</option>
+                        <option value="3">3 Bedrooms</option>
+                        <option value="4">4 Bedrooms</option>
+                        <option value="5+">5+ Bedrooms</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="bathrooms" class="block text-sm font-medium text-gray-700">Bathrooms</label>
+                    <select id="bathrooms"
+                           class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                        <option value="">Any</option>
+                        <option value="1">1 Bathroom</option>
+                        <option value="1.5">1.5 Bathrooms</option>
+                        <option value="2">2 Bathrooms</option>
+                        <option value="2.5">2.5 Bathrooms</option>
+                        <option value="3">3 Bathrooms</option>
+                        <option value="3+">3+ Bathrooms</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Preferences & Requirements -->
+            <div>
+                <label for="preferences" class="block text-sm font-medium text-gray-700">Preferences & Requirements <span class="text-red-500">*</span></label>
+                <textarea id="preferences" required rows="3" placeholder="e.g., Pet-friendly, Near schools, Parking, Garden, Modern kitchen, Good neighborhood, Safe area, Public transport nearby"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150"></textarea>
+                <p class="mt-1 text-xs text-gray-400">Describe what you're looking for: amenities, neighborhood features, lifestyle preferences, etc.</p>
+            </div>
+
+            <!-- Purchase Type -->
+            <div>
+                <label for="purchase-type" class="block text-sm font-medium text-gray-700">Purchase Type <span class="text-red-500">*</span></label>
+                <select id="purchase-type" required
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                    <option value="buy">Buy</option>
+                    <option value="rent">Rent</option>
+                    <option value="both">Both (Buy & Rent)</option>
+                </select>
+            </div>
+
+            <!-- Number of Properties -->
+            <div>
+                <label for="num-properties" class="block text-sm font-medium text-gray-700">Number of Recommendations <span class="text-red-500">*</span></label>
+                <input type="number" id="num-properties" required min="3" max="15" value="5" placeholder="e.g., 5"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+                <p class="mt-1 text-xs text-gray-400">How many property recommendations would you like? (3-15)</p>
+            </div>
+
+            <!-- Reference Image Upload (Optional) -->
+            <div>
+                <label for="reference-image" class="block text-sm font-medium text-gray-700">Reference Image/Map (Optional)</label>
+                <input type="file" id="reference-image" accept="image/*"
+                       class="mt-1 block w-full text-sm text-gray-700
+                       file:mr-4 file:py-2 file:px-4
+                       file:rounded-lg file:border-0
+                       file:text-sm file:font-semibold
+                       file:bg-emerald-50 file:text-emerald-700
+                       hover:file:bg-emerald-100 cursor-pointer">
+                <p class="mt-1 text-xs text-gray-400">Upload a photo or map of the area to get location-specific property suggestions</p>
+                <div id="image-preview-container" class="mt-2 hidden">
+                    <div class="inline-block">
+                        <img id="image-preview" class="max-h-32 w-auto object-contain rounded-lg border-2 border-gray-300 p-1" alt="Image preview">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <button type="submit" id="generate-button"
+                    class="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                Search Properties
+            </button>
+        </form>
+
+        <!-- Status Message -->
+        <div id="status-message" class="mt-4 hidden p-3 rounded-lg"></div>
+
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="hidden mt-6 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+            <p class="mt-2 text-gray-600">Searching for properties...</p>
+        </div>
+
+        <!-- Output Area -->
+        <div id="output-area" class="mt-6 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Property Recommendations</h2>
+                <button id="download-pdf-button"
+                        class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow hover:bg-emerald-700 transition-colors duration-200">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export to PDF
+                </button>
+            </div>
+            <div id="property-results" class="bg-white border border-gray-200 rounded-lg p-6">
+                <!-- Property results will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if user came from index.html - redirect if not
+        document.addEventListener('DOMContentLoaded', function() {
+            const indexPage = 'index.html';
+            const allowedAccess = sessionStorage.getItem('allowedAccess');
+            
+            if (allowedAccess !== 'true') {
+                window.location.replace(indexPage);
+                return;
+            }
+            
+            // Clear the flag after checking to prevent reuse
+            sessionStorage.removeItem('allowedAccess');
+        });
+
+        const form = document.getElementById('property-form');
+        const locationInput = document.getElementById('location');
+        const propertyTypeInput = document.getElementById('property-type');
+        const minBudgetInput = document.getElementById('min-budget');
+        const maxBudgetInput = document.getElementById('max-budget');
+        const bedroomsInput = document.getElementById('bedrooms');
+        const bathroomsInput = document.getElementById('bathrooms');
+        const preferencesInput = document.getElementById('preferences');
+        const purchaseTypeInput = document.getElementById('purchase-type');
+        const numPropertiesInput = document.getElementById('num-properties');
+        const referenceImageInput = document.getElementById('reference-image');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const generateButton = document.getElementById('generate-button');
+        const outputArea = document.getElementById('output-area');
+        const downloadPdfButton = document.getElementById('download-pdf-button');
+        const statusMessage = document.getElementById('status-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const apiKeyWarning = document.getElementById('api-key-warning');
+        const propertyResults = document.getElementById('property-results');
+
+        // Get API key from config.js
+        let apiKey;
+        try {
+            apiKey = CONFIG.getApiKey();
+            if (!apiKey || apiKey.trim() === '' || apiKey.length < 20) {
+                apiKey = '';
+            }
+        } catch (error) {
+            console.error('Error decoding API key:', error);
+            apiKey = '';
+        }
+
+        const MAX_RETRIES = 3;
+        const MODEL_OPTIONS = [
+            { name: 'gemini-2.5-flash', v1: false },  // v1beta - fastest, most commonly available
+            { name: 'gemini-1.5-pro', v1: false },    // v1beta - better quality
+        ];
+
+        // Check if API key is set
+        if (!apiKey || apiKey.trim() === '') {
+            apiKeyWarning.classList.remove('hidden');
+        }
+
+        // Validate budget range
+        function validateBudget() {
+            const minBudget = parseFloat(minBudgetInput.value);
+            const maxBudget = parseFloat(maxBudgetInput.value);
+            
+            if (minBudget && maxBudget && minBudget > maxBudget) {
+                maxBudgetInput.setCustomValidity('Max budget must be greater than min budget');
+            } else {
+                maxBudgetInput.setCustomValidity('');
+            }
+        }
+
+        minBudgetInput.addEventListener('change', validateBudget);
+        maxBudgetInput.addEventListener('change', validateBudget);
+
+        // Reference image preview
+        let referenceImageBase64 = null;
+        referenceImageInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('Please upload an image file.');
+                    referenceImageInput.value = '';
+                    return;
+                }
+                
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('Image file size should be less than 10MB.');
+                    referenceImageInput.value = '';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataUrl = e.target.result;
+                    referenceImageBase64 = dataUrl.split(',')[1];
+                    imagePreview.src = dataUrl;
+                    imagePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                referenceImageBase64 = null;
+                imagePreviewContainer.classList.add('hidden');
+                imagePreview.src = '';
+            }
+        });
+
+        /**
+         * Shows loading state
+         */
+        function showLoading() {
+            generateButton.disabled = true;
+            generateButton.innerHTML = `
+                <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Searching...
+            `;
+            loadingIndicator.classList.remove('hidden');
+            outputArea.classList.add('hidden');
+            statusMessage.classList.add('hidden');
+        }
+
+        /**
+         * Hides loading state
+         */
+        function hideLoading() {
+            generateButton.disabled = false;
+            generateButton.innerHTML = `
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                Search Properties
+            `;
+            loadingIndicator.classList.add('hidden');
+        }
+
+        /**
+         * Shows status message
+         */
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = isError 
+                ? 'mt-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg' 
+                : 'mt-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg';
+            statusMessage.classList.remove('hidden');
+        }
+
+        /**
+         * Generates property recommendations using AI API
+         */
+        async function generatePropertySearch(location, propertyType, minBudget, maxBudget, bedrooms, bathrooms, preferences, purchaseType, numProperties, referenceImage, attempt = 1, modelIndex = 0) {
+            if (!apiKey || apiKey.trim() === '') {
+                throw new Error('API key is not set. Please add your Google Generative AI API key in config.js.');
+            }
+
+            if (modelIndex >= MODEL_OPTIONS.length) {
+                throw new Error('All available models failed. Please check your API key and model availability.');
+            }
+
+            const currentModelConfig = MODEL_OPTIONS[modelIndex];
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModelConfig.name}:generateContent?key=${apiKey}`;
+
+            const bedroomsText = bedrooms ? `${bedrooms} bedroom${bedrooms !== '1' ? 's' : ''}` : 'Any number of bedrooms';
+            const bathroomsText = bathrooms ? `${bathrooms} bathroom${bathrooms !== '1' ? 's' : ''}` : 'Any number of bathrooms';
+
+            let prompt = `You are an expert real estate advisor. Provide comprehensive property recommendations based on the following search criteria:
+
+LOCATION: ${location}
+PROPERTY TYPE: ${propertyType}
+BUDGET RANGE: $${minBudget.toLocaleString()} - $${maxBudget.toLocaleString()}
+BEDROOMS: ${bedroomsText}
+BATHROOMS: ${bathroomsText}
+PURCHASE TYPE: ${purchaseType}
+PREFERENCES & REQUIREMENTS: ${preferences}
+
+Please provide ${numProperties} detailed property recommendations. For each property, include:
+
+1. **PROPERTY DETAILS**
+   - Property type and size (square footage if applicable)
+   - Number of bedrooms and bathrooms
+   - Estimated price (within budget range)
+   - Purchase/Rent option
+
+2. **LOCATION INFORMATION**
+   - Specific neighborhood or area within ${location}
+   - Address or area description
+   - Nearby amenities (schools, shopping, parks, transport)
+   - Safety and neighborhood quality
+
+3. **PROPERTY FEATURES**
+   - Key features and amenities
+   - Condition and age of property
+   - Special characteristics
+   - Parking availability
+   - Outdoor space (yard, balcony, etc.)
+
+4. **WHY THIS PROPERTY MATCHES**
+   - How it meets the stated preferences
+   - Unique selling points
+   - Best fit for lifestyle needs
+
+5. **ADDITIONAL INFORMATION**
+   - Estimated monthly costs (utilities, HOA if applicable)
+   - Property taxes (if buying)
+   - Nearby attractions or points of interest
+   - Potential concerns or considerations
+
+Format each property as a separate, clearly labeled section. Number them 1 through ${numProperties}. Make recommendations realistic and based on typical market conditions for the location. Include a mix of options within the budget range.
+
+${referenceImage ? 'IMPORTANT: The user has provided a reference image/map. Analyze the image and provide location-specific property suggestions based on what you see in the image, including nearby properties and area characteristics.' : ''}`;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: prompt }
+                    ]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 4096,
+                }
+            };
+
+            // Add image if provided (multimodal support)
+            if (referenceImage) {
+                payload.contents[0].parts.push({
+                    inlineData: {
+                        mimeType: "image/jpeg",
+                        data: referenceImage
+                    }
+                });
+            }
+
+            try {
+                console.log(`Generating property recommendations using model: ${currentModelConfig.name}...`);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseData = await response.json();
+                console.log('API Response status:', response.status);
+
+                if (!response.ok) {
+                    console.error('API Error Response:', responseData);
+                    let errorMessage = responseData.error?.message || responseData.message || `HTTP error! status: ${response.status}`;
+                    
+                    if (errorMessage.includes('not found') || errorMessage.includes('not supported') || response.status === 404) {
+                        console.log(`Model ${currentModelConfig.name} not available, trying next model...`);
+                        if (modelIndex < MODEL_OPTIONS.length - 1) {
+                            return generatePropertySearch(location, propertyType, minBudget, maxBudget, bedrooms, bathrooms, preferences, purchaseType, numProperties, referenceImage, 1, modelIndex + 1);
+                        }
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+
+                if (responseData.candidates && responseData.candidates.length > 0 && responseData.candidates[0].content) {
+                    const generatedText = responseData.candidates[0].content.parts[0].text;
+                    return generatedText;
+                } else {
+                    console.error('Unexpected API response format:', responseData);
+                    throw new Error("API did not return text in expected format.");
+                }
+            } catch (error) {
+                console.error(`Attempt ${attempt} failed with model ${currentModelConfig.name}:`, error);
+                if (error.message.includes('API key')) {
+                    throw error;
+                }
+                
+                if (error.message.includes('not found') || error.message.includes('not supported')) {
+                    if (modelIndex < MODEL_OPTIONS.length - 1) {
+                        return generatePropertySearch(location, propertyType, minBudget, maxBudget, bedrooms, bathrooms, preferences, purchaseType, numProperties, referenceImage, 1, modelIndex + 1);
+                    }
+                }
+                
+                if (attempt < MAX_RETRIES) {
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return generatePropertySearch(location, propertyType, minBudget, maxBudget, bedrooms, bathrooms, preferences, purchaseType, numProperties, referenceImage, attempt + 1, modelIndex);
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        /**
+         * Renders the property search results
+         */
+        function renderPropertyResults(resultsText, location) {
+            // Convert markdown-style formatting to HTML
+            let html = resultsText
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3 class="text-xl font-bold text-gray-800 mt-6 mb-3">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold text-gray-800 mt-8 mb-4">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold text-gray-800 mt-8 mb-4">$1</h1>')
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-800">$1</strong>')
+                // Lists
+                .replace(/^\- (.*$)/gim, '<li class="ml-4 mb-1">$1</li>')
+                .replace(/^\d+\. (.*$)/gim, '<li class="ml-4 mb-1">$1</li>')
+                // Paragraphs
+                .split('\n\n')
+                .map(para => {
+                    const trimmed = para.trim();
+                    if (!trimmed) return '';
+                    if (trimmed.startsWith('<')) return trimmed; // Already HTML
+                    return `<p class="mb-4 text-gray-700 leading-relaxed">${trimmed}</p>`;
+                })
+                .join('');
+
+            // Wrap lists
+            html = html.replace(/(<li.*<\/li>)/gs, '<ul class="list-disc ml-6 mb-4 space-y-1">$1</ul>');
+
+            // Add header info
+            const headerHtml = `
+                <div class="mb-6 pb-4 border-b-2 border-emerald-200">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">Property Search: ${location}</h1>
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-600">
+                        <span><strong>Search Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    </div>
+                </div>
+            `;
+
+            propertyResults.innerHTML = headerHtml + html;
+        }
+
+        /**
+         * Exports property results to PDF
+         */
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const location = locationInput.value;
+            const date = new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            // Get property results text
+            const resultsText = propertyResults.textContent || propertyResults.innerText;
+
+            doc.setFont('helvetica');
+            
+            // Title
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Property Search: ${location}`, 105, 20, { align: 'center' });
+            
+            // Date
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Generated: ${date}`, 105, 28, { align: 'center' });
+            
+            // Content
+            let yPos = 40;
+            doc.setFontSize(10);
+            
+            const paragraphs = resultsText.split('\n').filter(p => p.trim());
+            
+            paragraphs.forEach(para => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                const lines = doc.splitTextToSize(para.trim(), 180);
+                lines.forEach(line => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.text(line, 15, yPos);
+                    yPos += 5;
+                });
+                
+                yPos += 2;
+            });
+            
+            // Save PDF
+            const fileName = `PropertySearch_${location.replace(/\s+/g, '_')}_${date.replace(/\s+/g, '_')}.pdf`;
+            doc.save(fileName);
+        }
+
+        /**
+         * Form submission handler
+         */
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!apiKey || apiKey.trim() === '') {
+                showStatus("Please add your Google Generative AI API key in config.js to search properties.", true);
+                return;
+            }
+            
+            const location = locationInput.value.trim();
+            const propertyType = propertyTypeInput.value;
+            const minBudget = parseFloat(minBudgetInput.value);
+            const maxBudget = parseFloat(maxBudgetInput.value);
+            const bedrooms = bedroomsInput.value;
+            const bathrooms = bathroomsInput.value;
+            const preferences = preferencesInput.value.trim();
+            const purchaseType = purchaseTypeInput.value;
+            const numProperties = parseInt(numPropertiesInput.value);
+
+            if (!location || !propertyType || !minBudget || !maxBudget || !preferences || !purchaseType || !numProperties) {
+                showStatus("Please fill in all required fields.", true);
+                return;
+            }
+
+            if (minBudget > maxBudget) {
+                showStatus("Max budget must be greater than min budget.", true);
+                return;
+            }
+
+            if (minBudget <= 0 || maxBudget <= 0) {
+                showStatus("Budget must be greater than 0.", true);
+                return;
+            }
+
+            if (numProperties < 3 || numProperties > 15) {
+                showStatus("Number of properties must be between 3 and 15.", true);
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const generatedText = await generatePropertySearch(
+                    location, 
+                    propertyType, 
+                    minBudget, 
+                    maxBudget, 
+                    bedrooms, 
+                    bathrooms, 
+                    preferences, 
+                    purchaseType, 
+                    numProperties,
+                    referenceImageBase64
+                );
+                
+                renderPropertyResults(generatedText, location);
+                outputArea.classList.remove('hidden');
+                showStatus(`Successfully found ${numProperties} property recommendations!`, false);
+            } catch (error) {
+                console.error('Error searching properties:', error);
+                showStatus(`Error: ${error.message}`, true);
+                outputArea.classList.add('hidden');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // PDF export button handler
+        downloadPdfButton.addEventListener('click', () => {
+            try {
+                exportToPDF();
+                showStatus("PDF exported successfully!", false);
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                showStatus(`Error exporting PDF: ${error.message}`, true);
+            }
+        });
+    </script>
+</body>
+</html>
+

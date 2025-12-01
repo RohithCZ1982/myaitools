@@ -147,21 +147,7 @@
     </div>
 
     <script>
-        // Check if user came from index.html - redirect if not
-        // This check runs when DOM is ready to ensure sessionStorage is available
-        document.addEventListener('DOMContentLoaded', function() {
-            const indexPage = 'index.html';
-            
-            const allowedAccess = sessionStorage.getItem('allowedAccess');
-            
-            if (allowedAccess !== 'true') {
-                window.location.replace(indexPage);
-                return;
-            }
-            
-            // Clear the flag after checking to prevent reuse
-            sessionStorage.removeItem('allowedAccess');
-        });
+        // This page can be accessed directly without requiring navigation from index.html
 
         const loadModelsButton = document.getElementById('load-models-button');
         const statusMessage = document.getElementById('status-message');
