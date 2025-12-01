@@ -8,6 +8,9 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Load API Key Configuration -->
+    <script src="config.js"></script>
+    
     <!-- Load Inter font and custom styles -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
@@ -246,26 +249,11 @@
         const regenerateSameCheckbox = document.getElementById('regenerate-same-image');
 
         // ============================================
-        // API KEY SETUP INSTRUCTIONS:
-        // 1. Go to: https://console.cloud.google.com/
-        // 2. Create a new project
-        // 3. Enable "Generative Language API"
-        // 4. Create credentials → API Key
-        // 5. Copy your API key and encode it using: btoa("YOUR_API_KEY")
-        // 6. Paste the encoded key in the encodedApiKey variable below
-        // See API_KEY_SETUP.md for detailed instructions
-        //
-        // ⚠️ SECURITY WARNING: Even encoded, API keys in client-side code can be decoded.
-        // If sharing this application, restrict your API key in Google Cloud Console:
-        // - Set HTTP referrer restrictions to your domain
-        // - Limit to only "Generative Language API"
-        // - Monitor usage and set billing alerts
-        // See DEPLOYMENT_GUIDE.md for secure deployment options
+        // API KEY: Now loaded from config.js
+        // To update your API key, edit config.js file
         // ============================================
-        // Encoded API key (use btoa("YOUR_API_KEY") in browser console to encode)
-        const encodedApiKey = "AIzaSyBgG67flw7V7heIS2qxEEK9jOR-aMG52aM"; // ⚠️ ADD YOUR ENCODED API KEY HERE
-        // Decode the API key at runtime
-        const apiKey = atob(encodedApiKey);
+        // Get API key from config.js
+        const apiKey = IMAGEN_CONFIG.getApiKey();
         // Google Imagen API endpoint
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`; 
         const MAX_RETRIES = 5;

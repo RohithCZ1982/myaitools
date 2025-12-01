@@ -8,6 +8,9 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Load API Key Configuration -->
+    <script src="config.js"></script>
+    
     <!-- Load Inter font and custom styles -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
@@ -167,10 +170,11 @@
         const filterGenerateContent = document.getElementById('filter-generateContent');
 
         // ============================================
-        // API KEY SETUP - Use the same key as assignment generator
+        // API KEY: Now loaded from config.js
+        // To update your API key, edit config.js file
         // ============================================
-        const encodedApiKey = "AIzaSyBgG67flw7V7heIS2qxEEK9jOR-aMG52aM"; // ⚠️ SAME KEY AS ASSIGNMENT GENERATOR
-        const apiKey = atob(encodedApiKey);
+        // Get API key from config.js
+        const apiKey = CONFIG.getApiKey();
 
         // Check if API key is set
         if (!apiKey || apiKey.trim() === '') {

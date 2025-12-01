@@ -11,6 +11,9 @@
     <!-- Load jsPDF for PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
+    <!-- Load API Key Configuration -->
+    <script src="config.js"></script>
+    
     <!-- Load Inter font and custom styles -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
@@ -162,8 +165,19 @@
     </div>
 
     <script>
-        // Redirect check removed - page can be accessed directly
-        // If you want to restrict access, you can add it back, but it was causing issues with form submissions
+        // Check if user came from index.html - redirect if not
+        (function() {
+            const indexPage = 'index.html';
+            const allowedAccess = sessionStorage.getItem('allowedAccess');
+            
+            if (allowedAccess !== 'true') {
+                window.location.replace(indexPage);
+                return;
+            }
+            
+            // Clear the flag after checking to prevent reuse
+            sessionStorage.removeItem('allowedAccess');
+        })();
 
         const form = document.getElementById('assignment-form');
         const classInput = document.getElementById('class');
@@ -207,12 +221,8 @@
         const USE_OPENAI = false; // Set to true to use OpenAI instead
         const USE_ANTHROPIC = false; // Set to true to use Anthropic Claude instead
         
-        // Google Gemini API Key (Default)
-        // IMPORTANT: You need to ENCODE your API key using btoa() in browser console
-        // Example: btoa("AIzaSyBgG67flw7V7heIS2qxEEK9jOR-aMG52aM")
-        // Then paste the encoded result below
-        const encodedApiKey = "QUl6YVNieEdnNjdmbHc3VjdoZUlTMnF4RUVLOWpPUi1hTUc1MmFN"; // ⚠️ ENCODED API KEY (use btoa() to encode)
-        const apiKey = atob(encodedApiKey);
+        // Get API key from config.js
+        const apiKey = CONFIG.getApiKey();
         
         // OpenAI API Key (Alternative)
         const encodedOpenAIApiKey = ""; // ⚠️ ADD YOUR ENCODED OPENAI API KEY HERE (if using OpenAI)
