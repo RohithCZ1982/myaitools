@@ -186,8 +186,11 @@
             <div id="assignment-sheet" class="bg-white border border-gray-200 rounded-lg p-6">
                 <!-- Assignment content will be inserted here -->
             </div>
-            <!-- Answers Area (hidden by default) -->
-            <div id="answers-area" class="mt-6 hidden">
+        </div>
+        
+        <!-- Answers Area (hidden by default, outside output-area) -->
+        <div id="answers-area" class="mt-6 hidden">
+            <div class="w-full max-w-4xl bg-white shadow-xl rounded-2xl p-6 lg:p-8">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-bold text-gray-800">Answer Key</h2>
                     <button id="download-answers-pdf-button"
@@ -1006,10 +1009,22 @@ Provide the answers:`;
                 </div>
             `;
 
+            // If no HTML was generated, use the raw text as fallback
+            if (!html || html.trim().length === 0) {
+                html = `<div style="line-height: 1.8; color: #374151;">${answersText.split('\n').map(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return '';
+                    return `<p style="margin-bottom: 1rem;">${trimmed}</p>`;
+                }).join('')}</div>`;
+            }
+
             answersSheet.innerHTML = headerHtml + html;
             
             // Debug: log to console
             console.log('Answers rendered:', answersSheet.innerHTML.length, 'characters');
+            console.log('Answers HTML:', answersSheet.innerHTML.substring(0, 200));
+            console.log('Answers area element:', answersArea);
+            console.log('Answers area classes:', answersArea.className);
         }
 
         /**
@@ -1301,10 +1316,23 @@ Provide the answers:`;
 
             try {
                 const answersText = await generateAnswers(currentQuestions, classValue, subjectModule, difficulty);
-                console.log('Generated answers text:', answersText);
+                console.log('Generated answers text length:', answersText.length);
+                console.log('Generated answers text preview:', answersText.substring(0, 200));
+                
+                if (!answersText || answersText.trim().length === 0) {
+                    throw new Error('No answers were generated. Please try again.');
+                }
+                
                 renderAnswersSheet(classValue, subjectModule, answersText);
+                
+                // Force show the answers area
                 answersArea.classList.remove('hidden');
+                answersArea.style.display = 'block';
+                
                 console.log('Answers area should be visible now');
+                console.log('Answers area display style:', window.getComputedStyle(answersArea).display);
+                console.log('Answers sheet content length:', answersSheet.innerHTML.length);
+                
                 showStatus('Successfully generated answers!', false);
             } catch (error) {
                 console.error('Error generating answers:', error);
