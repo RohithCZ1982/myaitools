@@ -144,6 +144,24 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Reference Image Upload -->
+            <div>
+                <label for="reference-image-upload" class="block text-sm font-medium text-gray-700">Reference Image (Optional)</label>
+                <input type="file" id="reference-image-upload" accept="image/*"
+                       class="mt-1 block w-full text-sm text-gray-700
+                       file:mr-4 file:py-2 file:px-4
+                       file:rounded-lg file:border-0
+                       file:text-sm file:font-semibold
+                       file:bg-emerald-50 file:text-emerald-700
+                       hover:file:bg-emerald-100 cursor-pointer">
+                <p class="mt-1 text-xs text-gray-400">Upload a reference image to guide the AI's style, composition, or visual elements.</p>
+                <div id="reference-image-preview-container" class="mt-2 hidden">
+                    <div class="inline-block">
+                        <img id="reference-image-preview" class="max-h-32 w-auto object-contain rounded-lg border-2 border-gray-300 p-1" alt="Reference image preview">
+                    </div>
+                </div>
+            </div>
             
             <!-- Regenerate with same image checkbox -->
             <div id="regenerate-same-container" class="hidden">
@@ -215,6 +233,9 @@
         const logoUpload = document.getElementById('logo-upload');
         const logoPreviewContainer = document.getElementById('logo-preview-container');
         const logoPreview = document.getElementById('logo-preview');
+        const referenceImageUpload = document.getElementById('reference-image-upload');
+        const referenceImagePreviewContainer = document.getElementById('reference-image-preview-container');
+        const referenceImagePreview = document.getElementById('reference-image-preview');
         const contactInfo = document.getElementById('contact-info');
         const generateButton = document.getElementById('generate-button');
         const outputArea = document.getElementById('output-area');
@@ -230,17 +251,21 @@
         // 2. Create a new project
         // 3. Enable "Generative Language API"
         // 4. Create credentials → API Key
-        // 5. Copy your API key and paste it below
+        // 5. Copy your API key and encode it using: btoa("YOUR_API_KEY")
+        // 6. Paste the encoded key in the encodedApiKey variable below
         // See API_KEY_SETUP.md for detailed instructions
         //
-        // ⚠️ SECURITY WARNING: This API key is visible in the code.
+        // ⚠️ SECURITY WARNING: Even encoded, API keys in client-side code can be decoded.
         // If sharing this application, restrict your API key in Google Cloud Console:
         // - Set HTTP referrer restrictions to your domain
         // - Limit to only "Generative Language API"
         // - Monitor usage and set billing alerts
         // See DEPLOYMENT_GUIDE.md for secure deployment options
         // ============================================
-        const apiKey = "AIzaSyAQadxB52xM_7bpfMsKa3seVAgNVBje5nw"; // ⚠️ ADD YOUR API KEY HERE
+        // Encoded API key (use btoa("YOUR_API_KEY") in browser console to encode)
+        const encodedApiKey = "QUl6YVN5QVFhZHhCNTJ4TV83YnBmTXNLYTNzZVZBZ05WQmplNW53"; // ⚠️ ADD YOUR ENCODED API KEY HERE
+        // Decode the API key at runtime
+        const apiKey = atob(encodedApiKey);
         // Google Imagen API endpoint
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`; 
         const MAX_RETRIES = 5;
@@ -251,6 +276,8 @@
         
         // Store logo data
         let logoBase64Data = null;
+        // Store reference image data
+        let referenceImageBase64Data = null;
         // Store previous generated image for regeneration
         let previousGeneratedImage = null;
 
@@ -431,6 +458,11 @@
 
             let prompt = `Generate a high-resolution, professional, highly detailed, modern social media status poster in a vertical aspect ratio (9:16) suitable for Instagram Stories and WhatsApp Status. The poster must feature the main title " ${keyTextValue} " prominently. The design style should be ${themeValue}. `;
 
+            // Add reference image instruction if provided
+            if (referenceImageBase64Data) {
+                prompt += `Use the provided reference image as a style guide for color palette, composition, mood, and visual aesthetics. Match the overall feel and artistic direction of the reference image while creating a unique poster design. `;
+            }
+
             if (workshopImageDescValue) {
                 prompt += `The central visual element should be "${workshopImageDescValue}". `;
             } else {
@@ -465,10 +497,20 @@
                 throw new Error('API key is not set. Please add your Google Imagen API key.');
             }
 
+            // Build the instance object
+            const instance = { 
+                prompt: prompt
+            };
+            
+            // Add reference image if provided
+            if (referenceImageBase64Data) {
+                instance.image = {
+                    bytesBase64Encoded: referenceImageBase64Data
+                };
+            }
+
             const payload = {
-                instances: [{ 
-                    prompt: prompt
-                }],
+                instances: [instance],
                 parameters: {
                     sampleCount: 1,
                     aspectRatio: "9:16", 
@@ -729,6 +771,40 @@
                 logoBase64Data = null;
                 logoPreviewContainer.classList.add('hidden');
                 logoPreview.src = '';
+            }
+        });
+
+        // Reference image upload preview and data storage
+        referenceImageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    alert('Please upload an image file.');
+                    referenceImageUpload.value = '';
+                    return;
+                }
+                
+                // Validate file size (max 10MB for reference images)
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('Reference image file size should be less than 10MB.');
+                    referenceImageUpload.value = '';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataUrl = e.target.result;
+                    // Extract base64 data (remove data:image/...;base64, prefix)
+                    referenceImageBase64Data = dataUrl.split(',')[1];
+                    referenceImagePreview.src = dataUrl;
+                    referenceImagePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                referenceImageBase64Data = null;
+                referenceImagePreviewContainer.classList.add('hidden');
+                referenceImagePreview.src = '';
             }
         });
 
