@@ -844,6 +844,123 @@ Generate the summary:`;
         }
 
         /**
+         * Generates answers for the questions using AI
+         */
+        async function generateAnswers(questions, classValue, subjectModule, difficulty) {
+            if (!apiKey || apiKey.trim() === '') {
+                throw new Error('API key is not set. Please add your Google Generative AI API key in config.js.');
+            }
+
+            const questionsText = questions.map((q, i) => `${i + 1}. ${q}`).join('\n');
+            
+            const prompt = `You are an expert educator. Provide comprehensive answers to the following assignment questions for ${classValue} students studying ${subjectModule}.
+
+The questions are at ${difficulty} difficulty level.
+
+Questions:
+${questionsText}
+
+Please provide detailed, accurate answers for each question. Format your response as:
+1. [Answer to question 1]
+2. [Answer to question 2]
+...and so on.
+
+Make sure each answer is:
+- Clear and well-explained
+- Appropriate for ${classValue} level
+- Complete and accurate
+- Educational and helpful
+
+Provide the answers:`;
+
+            const currentModelConfig = MODEL_OPTIONS[0];
+            const apiUrl = getApiUrl(currentModelConfig.name, currentModelConfig.v1);
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: prompt }]
+                }],
+                generationConfig: {
+                    temperature: 0.3,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 4096,
+                }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseData = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(responseData.error?.message || `HTTP error! status: ${response.status}`);
+                }
+
+                if (responseData.candidates && responseData.candidates.length > 0 && responseData.candidates[0].content) {
+                    return responseData.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error("API did not return text in expected format.");
+                }
+            } catch (error) {
+                console.error('Error generating answers:', error);
+                throw error;
+            }
+        }
+
+        /**
+         * Renders the answers sheet
+         */
+        function renderAnswersSheet(classValue, subjectModule, answersText) {
+            const date = new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            // Convert markdown-style formatting to HTML
+            let html = answersText
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3 style="font-size: 1.25rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #1f2937;">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.5rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; color: #1f2937;">$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.875rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; color: #1f2937;">$1</h1>')
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600; color: #1f2937;">$1</strong>')
+                // Lists
+                .replace(/^\- (.*$)/gim, '<li style="margin-left: 1rem; margin-bottom: 0.25rem;">$1</li>')
+                .replace(/^\d+\. (.*$)/gim, '<li style="margin-left: 1rem; margin-bottom: 0.25rem;">$1</li>')
+                // Paragraphs
+                .split('\n\n')
+                .map(para => {
+                    const trimmed = para.trim();
+                    if (!trimmed) return '';
+                    if (trimmed.startsWith('<')) return trimmed; // Already HTML
+                    return `<p style="margin-bottom: 1rem; line-height: 1.6; color: #374151;">${trimmed}</p>`;
+                })
+                .join('');
+
+            // Wrap lists
+            html = html.replace(/(<li.*<\/li>)/gs, '<ul style="list-disc; margin-left: 1.5rem; margin-bottom: 1rem; space-y: 0.25rem;">$1</ul>');
+
+            const headerHtml = `
+                <div style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #10b981;">
+                    <h1 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem; text-align: center;">Answer Key</h1>
+                    <div style="text-align: center; color: #6b7280; margin-bottom: 1rem;">
+                        <p style="margin: 0.25rem 0;"><strong>Class:</strong> ${classValue}</p>
+                        <p style="margin: 0.25rem 0;"><strong>Subject Module:</strong> ${subjectModule}</p>
+                        <p style="margin: 0.25rem 0;"><strong>Date:</strong> ${date}</p>
+                    </div>
+                </div>
+            `;
+
+            answersSheet.innerHTML = headerHtml + html;
+        }
+
+        /**
          * Renders the assignment sheet
          */
         function renderAssignmentSheet(classValue, subjectModule, questions) {
