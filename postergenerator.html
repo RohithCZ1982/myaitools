@@ -210,7 +210,8 @@
 
     <script>
         // Check if user came from index.html - redirect if not
-        (function() {
+        // This check runs when DOM is ready to ensure sessionStorage is available
+        document.addEventListener('DOMContentLoaded', function() {
             const indexPage = 'index.html';
             
             // Check if allowedAccess flag is set in sessionStorage
@@ -225,7 +226,7 @@
             
             // Clear the flag after checking to prevent reuse
             sessionStorage.removeItem('allowedAccess');
-        })();
+        });
 
         const form = document.getElementById('poster-form');
         const keyText = document.getElementById('key-text');
@@ -253,7 +254,19 @@
         // To update your API key, edit config.js file
         // ============================================
         // Get API key from config.js
-        const apiKey = IMAGEN_CONFIG.getApiKey();
+        let apiKey;
+        try {
+            apiKey = IMAGEN_CONFIG.getApiKey();
+            // Validate that the key was decoded properly
+            if (!apiKey || apiKey.trim() === '' || apiKey.length < 20) {
+                console.error('Invalid API key format');
+                apiKey = '';
+            }
+        } catch (error) {
+            console.error('Error decoding API key:', error);
+            apiKey = '';
+        }
+        
         // Google Imagen API endpoint
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`; 
         const MAX_RETRIES = 5;
@@ -261,6 +274,7 @@
         // Log API configuration (without exposing the key)
         console.log('API URL configured:', apiUrl.replace(apiKey, '***'));
         console.log('API Key set:', apiKey ? 'Yes' : 'No');
+        console.log('API Key length:', apiKey ? apiKey.length : 0);
         
         // Store logo data
         let logoBase64Data = null;
@@ -502,9 +516,23 @@
                     console.error('API Error Response:', responseData);
                     let errorMessage = responseData.error?.message || responseData.message || `HTTP error! status: ${response.status}`;
                     
-                    // Check for billing-related errors in the response
+                    // Check for API key errors
                     const errorText = JSON.stringify(responseData).toLowerCase();
-                    if (errorText.includes('billed') || 
+                    if (errorText.includes('api key') || 
+                        errorText.includes('apikey') || 
+                        errorText.includes('invalid key') ||
+                        errorText.includes('authentication') ||
+                        errorText.includes('unauthorized') ||
+                        response.status === 401 ||
+                        response.status === 403) {
+                        errorMessage = "Invalid API key. Please check your API key in config.js. Make sure:\n" +
+                                     "1. The key is correctly encoded using btoa()\n" +
+                                     "2. The key has Imagen API permissions enabled\n" +
+                                     "3. The key is not expired or revoked\n" +
+                                     "Use the API Key Encoder/Decoder page to verify your key.";
+                    }
+                    // Check for billing-related errors
+                    else if (errorText.includes('billed') || 
                         errorText.includes('billing') || 
                         errorText.includes('payment required') ||
                         errorText.includes('only accessible to billed users')) {
@@ -544,11 +572,25 @@
             
             // Check if API key is set before proceeding
             if (!apiKey || apiKey.trim() === '') {
-                resetState("Please add your Google Imagen API key in the code to generate posters.");
+                resetState("Please add your Google Imagen API key in config.js to generate posters.");
                 outputArea.innerHTML = `
                     <div class="text-center p-4">
                         <p class="text-red-600 font-semibold mb-2">API Key Required</p>
-                        <p class="text-gray-600 text-sm">Please add your Google Imagen API key in the code (line 145) to use this feature.</p>
+                        <p class="text-gray-600 text-sm mb-2">Please add your Google Imagen API key in <code class="bg-gray-200 px-1 rounded">config.js</code> file.</p>
+                        <p class="text-gray-600 text-sm">Use the <a href="apikey-encoder.html" class="text-emerald-600 hover:underline">API Key Encoder/Decoder</a> page to encode your key.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Validate API key format
+            if (apiKey.length < 20) {
+                resetState("Invalid API key format. Please check your API key in config.js.");
+                outputArea.innerHTML = `
+                    <div class="text-center p-4">
+                        <p class="text-red-600 font-semibold mb-2">Invalid API Key Format</p>
+                        <p class="text-gray-600 text-sm mb-2">The API key appears to be invalid or incorrectly encoded.</p>
+                        <p class="text-gray-600 text-sm">Please verify your key using the <a href="apikey-encoder.html" class="text-emerald-600 hover:underline">API Key Encoder/Decoder</a> page.</p>
                     </div>
                 `;
                 return;
@@ -632,9 +674,21 @@
                 console.error('Generation error:', error);
                 let errorMessage = error.message || "An error occurred while generating the image.";
                 let billingError = false;
+                let apiKeyError = false;
                 
+                // Check for API key errors
+                const errorLower = errorMessage.toLowerCase();
+                if (errorLower.includes('api key') || 
+                    errorLower.includes('apikey') || 
+                    errorLower.includes('invalid key') ||
+                    errorLower.includes('authentication') ||
+                    errorLower.includes('unauthorized') ||
+                    errorLower.includes('please pass a valid api key')) {
+                    apiKeyError = true;
+                    errorMessage = "Invalid API key. Please check your API key in config.js.";
+                }
                 // Check for billing-related errors
-                if (errorMessage.includes('billed') || 
+                else if (errorMessage.includes('billed') || 
                     errorMessage.includes('billing') || 
                     errorMessage.includes('payment') ||
                     errorMessage.includes('quota') ||
@@ -645,7 +699,37 @@
                 
                 resetState(errorMessage);
                 
-                if (billingError) {
+                if (apiKeyError) {
+                    outputArea.innerHTML = `
+                        <div class="text-center p-4">
+                            <div class="mb-4">
+                                <svg class="w-16 h-16 mx-auto text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                </svg>
+                            </div>
+                            <p class="text-red-600 font-semibold mb-3 text-lg">Invalid API Key</p>
+                            <p class="text-gray-700 text-sm mb-4">Your API key is not valid or not properly configured.</p>
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left mb-4">
+                                <p class="text-sm font-semibold text-yellow-800 mb-2">To fix this:</p>
+                                <ol class="text-xs text-yellow-700 space-y-2 list-decimal list-inside">
+                                    <li>Open <code class="bg-yellow-100 px-1 rounded">config.js</code> file</li>
+                                    <li>Verify your API key is correctly encoded using <code class="bg-yellow-100 px-1 rounded">btoa()</code></li>
+                                    <li>Ensure the key has Imagen API permissions enabled in Google Cloud Console</li>
+                                    <li>Use the <a href="apikey-encoder.html" class="text-emerald-600 hover:underline font-semibold">API Key Validator</a> to test your key</li>
+                                    <li>Make sure you're using the correct API key for Imagen (not Generative AI)</li>
+                                </ol>
+                            </div>
+                            <a href="apikey-encoder.html" 
+                               class="inline-block px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold mr-2">
+                                Validate API Key →
+                            </a>
+                            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" 
+                               class="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold">
+                                Get New API Key →
+                            </a>
+                        </div>
+                    `;
+                } else if (billingError) {
                     outputArea.innerHTML = `
                         <div class="text-center p-4">
                             <div class="mb-4">
