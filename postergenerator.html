@@ -137,7 +137,7 @@
                        file:text-sm file:font-semibold
                        file:bg-emerald-50 file:text-emerald-700
                        hover:file:bg-emerald-100 cursor-pointer">
-                <p class="mt-1 text-xs text-gray-400">Upload your company logo to be placed above the company name in a circular shape.</p>
+                <p class="mt-1 text-xs text-gray-400">Upload your company logo to be placed above the company name. The logo will maintain its transparency.</p>
                 <div id="logo-preview-container" class="mt-2 hidden">
                     <div class="inline-block">
                         <img id="logo-preview" class="max-h-24 w-24 h-24 object-cover rounded-full border-2 border-gray-300 p-1" alt="Logo preview">
@@ -155,7 +155,7 @@
                        file:text-sm file:font-semibold
                        file:bg-emerald-50 file:text-emerald-700
                        hover:file:bg-emerald-100 cursor-pointer">
-                <p class="mt-1 text-xs text-gray-400">Upload a reference image to guide the AI's style, composition, or visual elements.</p>
+                <p class="mt-1 text-xs text-gray-400">Upload a reference image to guide the AI's style, composition, or visual elements. The image will be described in the prompt to influence the design.</p>
                 <div id="reference-image-preview-container" class="mt-2 hidden">
                     <div class="inline-block">
                         <img id="reference-image-preview" class="max-h-32 w-auto object-contain rounded-lg border-2 border-gray-300 p-1" alt="Reference image preview">
@@ -334,20 +334,7 @@
                             const x = canvas.width / 2; // Center horizontally
                             const y = canvas.height * 0.08; // 8% from top
                             
-                            // Create circular clipping path
-                            ctx.save();
-                            ctx.beginPath();
-                            ctx.arc(x, y, radius, 0, Math.PI * 2);
-                            ctx.closePath();
-                            ctx.clip();
-                            
-                            // Draw white circular background for visibility
-                            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-                            ctx.beginPath();
-                            ctx.arc(x, y, radius, 0, Math.PI * 2);
-                            ctx.fill();
-                            
-                            // Calculate logo dimensions to fill the circle
+                            // Calculate logo dimensions maintaining aspect ratio
                             const logoAspectRatio = logoImg.width / logoImg.height;
                             let logoWidth, logoHeight;
                             
@@ -361,21 +348,14 @@
                                 logoWidth = logoSize * logoAspectRatio;
                             }
                             
-                            // Center the logo within the circle
+                            // Center the logo
                             const logoX = x - logoWidth / 2;
                             const logoY = y - logoHeight / 2;
                             
-                            // Draw the logo
-                            ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
-                            ctx.restore();
-                            
-                            // Add a subtle border around the circle
+                            // Draw the logo with transparency preserved
                             ctx.save();
-                            ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-                            ctx.lineWidth = 2;
-                            ctx.beginPath();
-                            ctx.arc(x, y, radius, 0, Math.PI * 2);
-                            ctx.stroke();
+                            ctx.globalCompositeOperation = 'source-over';
+                            ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
                             ctx.restore();
                             
                             // Convert canvas to base64
@@ -498,16 +478,11 @@
             }
 
             // Build the instance object
+            // Note: imagen-4.0-generate-001 doesn't support image inputs,
+            // so we describe the reference image in the prompt instead
             const instance = { 
                 prompt: prompt
             };
-            
-            // Add reference image if provided
-            if (referenceImageBase64Data) {
-                instance.image = {
-                    bytesBase64Encoded: referenceImageBase64Data
-                };
-            }
 
             const payload = {
                 instances: [instance],
