@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Social Media Poster Generator</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Inter font and custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Custom scrollbar for better mobile feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6EE7B7; /* Tailwind green-300 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #34D399; /* Tailwind green-400 */
+        }
+        
+        /* Textarea styling for 3-line scrollable fields */
+        textarea[rows="3"] {
+            line-height: 1.5rem;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+        
+        textarea[rows="3"]::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        textarea[rows="3"]::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 3px;
+        }
+        
+        textarea[rows="3"]::-webkit-scrollbar-thumb {
+            background: #6EE7B7;
+            border-radius: 3px;
+        }
+        
+        textarea[rows="3"]::-webkit-scrollbar-thumb:hover {
+            background: #34D399;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col items-center justify-start bg-gray-50">
+
+    <div class="w-full max-w-lg bg-white shadow-xl rounded-2xl p-6 lg:p-8">
+        <!-- Back Button -->
+        <a href="index.html" 
+           class="inline-flex items-center text-sm text-emerald-600 hover:text-emerald-700 font-medium mb-4 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Home
+        </a>
+        
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">AI Poster Creator</h1>
+        <p class="text-gray-500 mb-6">Generate stunning, vertical social media posters for WhatsApp/Instagram status.</p>
+        
+        <!-- API Key Warning (shown if key is not set) -->
+        <div id="api-key-warning" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-yellow-600 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-yellow-800">API Key Required</p>
+                    <p class="text-xs text-yellow-700 mt-1">Please add your Google Imagen API key to generate posters. See <code class="bg-yellow-100 px-1 rounded">API_KEY_SETUP.md</code> for instructions.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Form -->
+        <form id="poster-form" class="space-y-4">
+            
+            <!-- Key Text / Title -->
+            <div>
+                <label for="key-text" class="block text-sm font-medium text-gray-700">Main Title / Event Name <span class="text-red-500">*</span></label>
+                <input type="text" id="key-text" required placeholder="e.g., Ornate Mandala Workshop"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Theme/Style -->
+            <div>
+                <label for="theme" class="block text-sm font-medium text-gray-700">Overall Theme / Style Description <span class="text-red-500">*</span></label>
+                <textarea id="theme" required placeholder="e.g., Artistic, Green and Teal, Modern, Energetic" rows="3"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 resize-none overflow-y-auto"
+                       style="height: calc(1.5rem * 3 + 1rem); line-height: 1.5rem;"></textarea>
+            </div>
+
+            <!-- Workshop Visual Element -->
+            <div>
+                <label for="workshop-image-desc" class="block text-sm font-medium text-gray-700">Workshop Visual Element (e.g., an ornate mandala)</label>
+                <textarea id="workshop-image-desc" placeholder="e.g., A detailed, colorful mandala pattern, a paintbrush on a canvas, abstract art" rows="3"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 resize-none overflow-y-auto"
+                       style="height: calc(1.5rem * 3 + 1rem); line-height: 1.5rem;"></textarea>
+                <p class="mt-1 text-xs text-gray-400">Describe the main visual element related to your workshop or event.</p>
+            </div>
+
+            <!-- Additional Details (Optional) -->
+            <div>
+                <label for="details" class="block text-sm font-medium text-gray-700">Date, Time, Fee (Optional)</label>
+                <textarea id="details" placeholder="e.g., 6th December, 4:30 PM - 7:00 PM, Fee: ₹1200" rows="3"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 resize-none overflow-y-auto"
+                       style="height: calc(1.5rem * 3 + 1rem); line-height: 1.5rem;"></textarea>
+                <p class="mt-1 text-xs text-gray-400">Specify details you want the AI to render on the poster.</p>
+            </div>
+
+            <!-- Company Name / Logo Text -->
+            <div>
+                <label for="company-name" class="block text-sm font-medium text-gray-700">Company / Brand Name <span class="text-red-500">*</span></label>
+                <input type="text" id="company-name" required placeholder="e.g., The Hobby Place"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Logo Upload -->
+            <div>
+                <label for="logo-upload" class="block text-sm font-medium text-gray-700">Upload Logo (Optional)</label>
+                <input type="file" id="logo-upload" accept="image/*"
+                       class="mt-1 block w-full text-sm text-gray-700
+                       file:mr-4 file:py-2 file:px-4
+                       file:rounded-lg file:border-0
+                       file:text-sm file:font-semibold
+                       file:bg-emerald-50 file:text-emerald-700
+                       hover:file:bg-emerald-100 cursor-pointer">
+                <p class="mt-1 text-xs text-gray-400">Upload your company logo to be placed above the company name in a circular shape.</p>
+                <div id="logo-preview-container" class="mt-2 hidden">
+                    <div class="inline-block">
+                        <img id="logo-preview" class="max-h-24 w-24 h-24 object-cover rounded-full border-2 border-gray-300 p-1" alt="Logo preview">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Regenerate with same image checkbox -->
+            <div id="regenerate-same-container" class="hidden">
+                <label class="flex items-center">
+                    <input type="checkbox" id="regenerate-same-image" class="mr-2 h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded">
+                    <span class="text-sm text-gray-700">Regenerate with same image (only change text content)</span>
+                </label>
+                <p class="mt-1 text-xs text-gray-400">Check this to reuse the last generated image and only update the text fields.</p>
+            </div>
+
+            <!-- Contact Details -->
+            <div>
+                <label for="contact-info" class="block text-sm font-medium text-gray-700">Contact Information</label>
+                <textarea id="contact-info" placeholder="e.g., Call: 9620-847-069 | @thehobbyplace.in" rows="3"
+                       class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 resize-none overflow-y-auto"
+                       style="height: calc(1.5rem * 3 + 1rem); line-height: 1.5rem;"></textarea>
+                <p class="mt-1 text-xs text-gray-400">This usually goes at the bottom (phone, social media, location).</p>
+            </div>
+
+            <button type="submit" id="generate-button"
+                    class="w-full flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-xl shadow-lg text-white bg-emerald-500 hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-200 disabled:opacity-50">
+                <svg id="button-icon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                Generate AI Poster
+            </button>
+        </form>
+    </div>
+
+    <!-- Output Section -->
+    <div class="w-full max-w-lg mt-8 mb-4">
+        <div id="output-area" class="min-h-24 flex items-center justify-center p-6 bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300">
+            <p class="text-gray-500">Your generated poster will appear here.</p>
+        </div>
+        
+        <!-- Action Buttons (Hidden until image is generated) -->
+        <div id="action-buttons" class="hidden mt-4 space-y-3">
+             <button id="download-button"
+                    class="w-full px-4 py-3 border border-transparent text-base font-medium rounded-xl shadow-md text-emerald-800 bg-emerald-200 hover:bg-emerald-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-200">
+                Download Poster
+            </button>
+            <div id="status-message" class="text-center text-sm text-red-600 hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check if user came from index.html - redirect if not
+        (function() {
+            const indexPage = 'index.html';
+            
+            // Check if allowedAccess flag is set in sessionStorage
+            // This flag is set when user clicks the button on index.html
+            const allowedAccess = sessionStorage.getItem('allowedAccess');
+            
+            if (allowedAccess !== 'true') {
+                // Redirect to index.html if not accessed from index.html
+                window.location.replace(indexPage);
+                return;
+            }
+            
+            // Clear the flag after checking to prevent reuse
+            sessionStorage.removeItem('allowedAccess');
+        })();
+
+        const form = document.getElementById('poster-form');
+        const keyText = document.getElementById('key-text');
+        const theme = document.getElementById('theme');
+        const workshopImageDesc = document.getElementById('workshop-image-desc');
+        const details = document.getElementById('details');
+        const companyName = document.getElementById('company-name');
+        const logoUpload = document.getElementById('logo-upload');
+        const logoPreviewContainer = document.getElementById('logo-preview-container');
+        const logoPreview = document.getElementById('logo-preview');
+        const contactInfo = document.getElementById('contact-info');
+        const generateButton = document.getElementById('generate-button');
+        const outputArea = document.getElementById('output-area');
+        const actionButtons = document.getElementById('action-buttons');
+        const downloadButton = document.getElementById('download-button');
+        const statusMessage = document.getElementById('status-message');
+        const regenerateSameContainer = document.getElementById('regenerate-same-container');
+        const regenerateSameCheckbox = document.getElementById('regenerate-same-image');
+
+        // ============================================
+        // API KEY SETUP INSTRUCTIONS:
+        // 1. Go to: https://console.cloud.google.com/
+        // 2. Create a new project
+        // 3. Enable "Generative Language API"
+        // 4. Create credentials → API Key
+        // 5. Copy your API key and paste it below
+        // See API_KEY_SETUP.md for detailed instructions
+        //
+        // ⚠️ SECURITY WARNING: This API key is visible in the code.
+        // If sharing this application, restrict your API key in Google Cloud Console:
+        // - Set HTTP referrer restrictions to your domain
+        // - Limit to only "Generative Language API"
+        // - Monitor usage and set billing alerts
+        // See DEPLOYMENT_GUIDE.md for secure deployment options
+        // ============================================
+        const apiKey = "AIzaSyAQadxB52xM_7bpfMsKa3seVAgNVBje5nw"; // ⚠️ ADD YOUR API KEY HERE
+        // Google Imagen API endpoint
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`; 
+        const MAX_RETRIES = 5;
+        
+        // Log API configuration (without exposing the key)
+        console.log('API URL configured:', apiUrl.replace(apiKey, '***'));
+        console.log('API Key set:', apiKey ? 'Yes' : 'No');
+        
+        // Store logo data
+        let logoBase64Data = null;
+        // Store previous generated image for regeneration
+        let previousGeneratedImage = null;
+
+        /**
+         * Converts the base64 image data to a downloadable file.
+         * @param {string} base64Data The base64 string of the image.
+         */
+        function downloadImage(base64Data) {
+            const link = document.createElement('a');
+            link.href = 'data:image/png;base64,' + base64Data;
+            link.download = `ai-poster-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        /**
+         * Composites the logo onto the generated poster image in a circular shape, positioned above the company name.
+         * @param {string} posterBase64 The base64 string of the generated poster.
+         * @param {string} logoBase64 The base64 string of the logo (without data URL prefix).
+         * @returns {Promise<string>} Base64 string of the composite image.
+         */
+        async function compositeLogoOnImage(posterBase64, logoBase64) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Create image elements
+                    const posterImg = new Image();
+                    const logoImg = new Image();
+                    
+                    posterImg.onload = () => {
+                        logoImg.onload = () => {
+                            // Create canvas
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            
+                            // Set canvas size to poster dimensions
+                            canvas.width = posterImg.width;
+                            canvas.height = posterImg.height;
+                            
+                            // Draw the poster image
+                            ctx.drawImage(posterImg, 0, 0);
+                            
+                            // Calculate circular logo size
+                            // Logo will be placed at top center, above company name
+                            const logoSize = Math.min(
+                                canvas.width * 0.12, // 12% of poster width
+                                canvas.height * 0.10, // 10% of poster height
+                                180 // Max 180px
+                            );
+                            
+                            const radius = logoSize / 2;
+                            
+                            // Position: top center (above where company name will be)
+                            const x = canvas.width / 2; // Center horizontally
+                            const y = canvas.height * 0.08; // 8% from top
+                            
+                            // Create circular clipping path
+                            ctx.save();
+                            ctx.beginPath();
+                            ctx.arc(x, y, radius, 0, Math.PI * 2);
+                            ctx.closePath();
+                            ctx.clip();
+                            
+                            // Draw white circular background for visibility
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                            ctx.beginPath();
+                            ctx.arc(x, y, radius, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            // Calculate logo dimensions to fill the circle
+                            const logoAspectRatio = logoImg.width / logoImg.height;
+                            let logoWidth, logoHeight;
+                            
+                            if (logoAspectRatio > 1) {
+                                // Logo is wider than tall
+                                logoWidth = logoSize;
+                                logoHeight = logoSize / logoAspectRatio;
+                            } else {
+                                // Logo is taller than wide or square
+                                logoHeight = logoSize;
+                                logoWidth = logoSize * logoAspectRatio;
+                            }
+                            
+                            // Center the logo within the circle
+                            const logoX = x - logoWidth / 2;
+                            const logoY = y - logoHeight / 2;
+                            
+                            // Draw the logo
+                            ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
+                            ctx.restore();
+                            
+                            // Add a subtle border around the circle
+                            ctx.save();
+                            ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.arc(x, y, radius, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.restore();
+                            
+                            // Convert canvas to base64
+                            const compositeBase64 = canvas.toDataURL('image/png').split(',')[1];
+                            resolve(compositeBase64);
+                        };
+                        
+                        logoImg.onerror = () => {
+                            reject(new Error('Failed to load logo image'));
+                        };
+                        
+                        // Load logo image
+                        logoImg.src = 'data:image/png;base64,' + logoBase64;
+                    };
+                    
+                    posterImg.onerror = () => {
+                        reject(new Error('Failed to load poster image'));
+                    };
+                    
+                    // Load poster image
+                    posterImg.src = 'data:image/png;base64,' + posterBase64;
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        /**
+         * Displays a loading spinner and message.
+         */
+        function showLoading() {
+            generateButton.disabled = true;
+            generateButton.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generating Poster...
+            `;
+            outputArea.innerHTML = `
+                <div class="text-center text-gray-600">
+                    <p class="mb-2">Crafting your perfect poster...</p>
+                    <p class="text-sm">This can take up to 30 seconds.</p>
+                </div>
+            `;
+            actionButtons.classList.add('hidden');
+            statusMessage.classList.add('hidden');
+        }
+
+        /**
+         * Resets the button and output state.
+         * @param {string} message Optional error message to display.
+         */
+        function resetState(message = null) {
+            generateButton.disabled = false;
+            generateButton.innerHTML = `
+                <svg id="button-icon" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                Generate AI Poster
+            `;
+            if (message) {
+                statusMessage.textContent = message;
+                statusMessage.classList.remove('hidden');
+                outputArea.innerHTML = `<p class="text-gray-500">An error occurred. Please try again.</p>`;
+            } else {
+                statusMessage.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Constructs the detailed image generation prompt.
+         * @returns {string} The combined prompt.
+         */
+        function constructPrompt() {
+            const keyTextValue = keyText.value.trim();
+            const themeValue = theme.value.trim();
+            const workshopImageDescValue = workshopImageDesc.value.trim();
+            const detailsValue = details.value.trim();
+            const companyNameValue = companyName.value.trim();
+            const contactInfoValue = contactInfo.value.trim();
+
+            let prompt = `Generate a high-resolution, professional, highly detailed, modern social media status poster in a vertical aspect ratio (9:16) suitable for Instagram Stories and WhatsApp Status. The poster must feature the main title " ${keyTextValue} " prominently. The design style should be ${themeValue}. `;
+
+            if (workshopImageDescValue) {
+                prompt += `The central visual element should be "${workshopImageDescValue}". `;
+            } else {
+                prompt += `Include an abstract, artistic background element relevant to a workshop. `;
+            }
+
+            if (detailsValue) {
+                prompt += `Include the following important event details clearly rendered onto the poster: " ${detailsValue} ". `;
+            }
+
+            // Add logo instruction if logo is uploaded
+            if (logoBase64Data) {
+                prompt += `The poster must clearly display the company/brand name " ${companyNameValue} " centered near the top of the poster, positioned below where a circular logo will be placed. IMPORTANT: Do NOT create or generate any logo design, icon, or symbol. Only display the company name as text. Leave space at the very top center (approximately 10% of the height) for a circular logo to be added. The company name should be positioned directly below this space, centered horizontally. `;
+            } else {
+                prompt += `The poster must clearly display the company/brand name " ${companyNameValue} " near the top center, styled as text only. Do NOT create any logo, icon, or symbol design. `;
+            }
+            
+            prompt += `Add the contact information " ${contactInfoValue} " subtly at the bottom. Ensure all text is perfectly integrated and highly legible against the background.`;
+
+            return prompt;
+        }
+
+        /**
+         * Handles the API call with exponential backoff.
+         * @param {string} prompt The text prompt for image generation.
+         * @param {number} attempt The current retry attempt.
+         * @returns {Promise<string|null>} Base64 image data or null on failure.
+         */
+        async function fetchImageWithRetry(prompt, attempt = 1) {
+            // Check if API key is set
+            if (!apiKey || apiKey.trim() === '') {
+                throw new Error('API key is not set. Please add your Google Imagen API key.');
+            }
+
+            const payload = {
+                instances: [{ 
+                    prompt: prompt
+                }],
+                parameters: {
+                    sampleCount: 1,
+                    aspectRatio: "9:16", 
+                }
+            };
+
+            try {
+                // Log the payload (without sensitive data)
+                console.log('Sending request with payload structure:', {
+                    instances: payload.instances.length,
+                    hasPrompt: !!payload.instances[0].prompt,
+                    parameters: payload.parameters
+                });
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const responseData = await response.json();
+                console.log('API Response status:', response.status);
+                
+                if (!response.ok) {
+                    // Log detailed error information
+                    console.error('API Error Response:', responseData);
+                    let errorMessage = responseData.error?.message || responseData.message || `HTTP error! status: ${response.status}`;
+                    
+                    // Check for billing-related errors in the response
+                    const errorText = JSON.stringify(responseData).toLowerCase();
+                    if (errorText.includes('billed') || 
+                        errorText.includes('billing') || 
+                        errorText.includes('payment required') ||
+                        errorText.includes('only accessible to billed users')) {
+                        errorMessage = "Imagen API is only accessible to billed users at this time. Please set up billing in Google Cloud Console.";
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+
+                if (responseData.predictions && responseData.predictions.length > 0 && responseData.predictions[0].bytesBase64Encoded) {
+                    return responseData.predictions[0].bytesBase64Encoded;
+                } else {
+                    console.error('Unexpected API response format:', responseData);
+                    throw new Error("API did not return image data in expected format.");
+                }
+            } catch (error) {
+                console.error(`Attempt ${attempt} failed:`, error);
+                // If it's an API key error, don't retry
+                if (error.message.includes('API key')) {
+                    throw error;
+                }
+                if (attempt < MAX_RETRIES) {
+                    const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay)); 
+                    return fetchImageWithRetry(prompt, attempt + 1);
+                } else {
+                    throw error; // Re-throw the error to be caught by the form handler
+                }
+            }
+        }
+
+        /**
+         * Main form submission handler.
+         */
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Check if API key is set before proceeding
+            if (!apiKey || apiKey.trim() === '') {
+                resetState("Please add your Google Imagen API key in the code to generate posters.");
+                outputArea.innerHTML = `
+                    <div class="text-center p-4">
+                        <p class="text-red-600 font-semibold mb-2">API Key Required</p>
+                        <p class="text-gray-600 text-sm">Please add your Google Imagen API key in the code (line 145) to use this feature.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Check if regenerate with same image is checked
+            if (regenerateSameCheckbox.checked && previousGeneratedImage) {
+                // Use previous image and only update text (composite logo if needed)
+                showLoading();
+                
+                try {
+                    let finalImage;
+                    if (logoBase64Data) {
+                        finalImage = await compositeLogoOnImage(previousGeneratedImage, logoBase64Data);
+                    } else {
+                        finalImage = previousGeneratedImage;
+                    }
+                    
+                    const imageUrl = `data:image/png;base64,${finalImage}`;
+                    
+                    outputArea.innerHTML = `
+                        <img src="${imageUrl}" alt="Generated AI Poster" 
+                             class="w-full h-auto object-contain rounded-xl shadow-lg transition duration-300 transform hover:scale-[1.01]" />
+                    `;
+                    
+                    actionButtons.classList.remove('hidden');
+                    downloadButton.onclick = () => downloadImage(finalImage);
+                    resetState();
+                    return;
+                } catch (error) {
+                    console.error('Error regenerating with same image:', error);
+                    resetState("Error regenerating image. Generating new image instead.");
+                    // Fall through to generate new image
+                }
+            }
+            
+            const prompt = constructPrompt();
+            
+            showLoading();
+
+            try {
+                const base64Data = await fetchImageWithRetry(prompt);
+
+                if (base64Data) {
+                    // Store the base image for future regeneration
+                    previousGeneratedImage = base64Data;
+                    
+                    // Show regenerate checkbox
+                    regenerateSameContainer.classList.remove('hidden');
+                    
+                    // If logo is uploaded, composite it onto the generated image
+                    if (logoBase64Data) {
+                        const compositeImage = await compositeLogoOnImage(base64Data, logoBase64Data);
+                        const imageUrl = `data:image/png;base64,${compositeImage}`;
+                        
+                        outputArea.innerHTML = `
+                            <img src="${imageUrl}" alt="Generated AI Poster" 
+                                 class="w-full h-auto object-contain rounded-xl shadow-lg transition duration-300 transform hover:scale-[1.01]" />
+                        `;
+                        
+                        actionButtons.classList.remove('hidden');
+                        downloadButton.onclick = () => downloadImage(compositeImage);
+                    } else {
+                        const imageUrl = `data:image/png;base64,${base64Data}`;
+                        
+                        outputArea.innerHTML = `
+                            <img src="${imageUrl}" alt="Generated AI Poster" 
+                                 class="w-full h-auto object-contain rounded-xl shadow-lg transition duration-300 transform hover:scale-[1.01]" />
+                        `;
+                        
+                        actionButtons.classList.remove('hidden');
+                        downloadButton.onclick = () => downloadImage(base64Data);
+                    }
+                    
+                    resetState();
+                } else {
+                    resetState("Failed to generate the poster. Please try again.");
+                    outputArea.innerHTML = `<p class="text-gray-500 p-4">An error occurred while generating the image. Please try again.</p>`;
+                }
+            } catch (error) {
+                console.error('Generation error:', error);
+                let errorMessage = error.message || "An error occurred while generating the image.";
+                let billingError = false;
+                
+                // Check for billing-related errors
+                if (errorMessage.includes('billed') || 
+                    errorMessage.includes('billing') || 
+                    errorMessage.includes('payment') ||
+                    errorMessage.includes('quota') ||
+                    errorMessage.toLowerCase().includes('only accessible to billed users')) {
+                    billingError = true;
+                    errorMessage = "Billing account required. Please set up billing in Google Cloud Console.";
+                }
+                
+                resetState(errorMessage);
+                
+                if (billingError) {
+                    outputArea.innerHTML = `
+                        <div class="text-center p-4">
+                            <div class="mb-4">
+                                <svg class="w-16 h-16 mx-auto text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                </svg>
+                            </div>
+                            <p class="text-red-600 font-semibold mb-3 text-lg">Billing Account Required</p>
+                            <p class="text-gray-700 text-sm mb-4">The Imagen API requires a billing account to be set up, even if you're using free credits.</p>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left mb-4">
+                                <p class="text-sm font-semibold text-blue-800 mb-2">To fix this:</p>
+                                <ol class="text-xs text-blue-700 space-y-2 list-decimal list-inside">
+                                    <li>Go to <a href="https://console.cloud.google.com/billing" target="_blank" class="underline font-semibold">Google Cloud Billing</a></li>
+                                    <li>Link a billing account to your project</li>
+                                    <li>New accounts get $300 in free credits</li>
+                                    <li>You won't be charged until you exceed free credits</li>
+                                </ol>
+                            </div>
+                            <a href="https://console.cloud.google.com/billing" target="_blank" 
+                               class="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold">
+                                Set Up Billing →
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    outputArea.innerHTML = `
+                        <div class="text-center p-4">
+                            <p class="text-red-600 font-semibold mb-2">Generation Failed</p>
+                            <p class="text-gray-600 text-sm mb-2">${errorMessage}</p>
+                            <p class="text-gray-500 text-xs">Check the browser console (F12) for more details.</p>
+                        </div>
+                    `;
+                }
+            }
+        });
+
+        // Initialize with default values and check API key on page load
+        window.onload = () => {
+            // Check API key and show warning if missing
+            const apiKeyWarning = document.getElementById('api-key-warning');
+            // Check if API key is empty or just placeholder text
+            if (!apiKey || apiKey.trim() === '' || apiKey.includes('YOUR_API_KEY') || apiKey.includes('ADD YOUR')) {
+                apiKeyWarning.classList.remove('hidden');
+            } else {
+                // Hide warning if API key is set
+                apiKeyWarning.classList.add('hidden');
+            }
+            
+            // Set default form values
+            keyText.value = "Ornate Mandala Workshop";
+            theme.value = "Artistic, calming, vibrant green and teal colors, clean layout";
+            workshopImageDesc.value = "A detailed, colorful mandala pattern, similar to the provided reference";
+            details.value = "Date: 6th December | Time: 4:30 PM - 7:00 PM | Fee: ₹1200";
+            companyName.value = "thehobbyplace - find your passion";
+            contactInfo.value = "Call: 9620-847-069 | @thehobbyplace.in | The Hobby Place, Mysuru";
+        };
+
+        // Logo upload preview and data storage
+        logoUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    alert('Please upload an image file.');
+                    logoUpload.value = '';
+                    return;
+                }
+                
+                // Validate file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Logo file size should be less than 5MB.');
+                    logoUpload.value = '';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataUrl = e.target.result;
+                    // Extract base64 data (remove data:image/...;base64, prefix)
+                    logoBase64Data = dataUrl.split(',')[1];
+                    logoPreview.src = dataUrl;
+                    logoPreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                logoBase64Data = null;
+                logoPreviewContainer.classList.add('hidden');
+                logoPreview.src = '';
+            }
+        });
+
+    </script>
+</body>
+</html>
