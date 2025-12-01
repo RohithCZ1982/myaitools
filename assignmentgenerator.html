@@ -167,16 +167,40 @@
         <div id="output-area" class="mt-6 hidden">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold text-gray-800">Generated Assignment Sheet</h2>
-                <button id="download-pdf-button"
-                        class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow hover:bg-emerald-700 transition-colors duration-200">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    Export to PDF
-                </button>
+                <div class="flex gap-2">
+                    <button id="generate-answers-button" class="hidden inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 transition-colors duration-200">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Generate Answers
+                    </button>
+                    <button id="download-pdf-button"
+                            class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg shadow hover:bg-emerald-700 transition-colors duration-200">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export Questions to PDF
+                    </button>
+                </div>
             </div>
             <div id="assignment-sheet" class="bg-white border border-gray-200 rounded-lg p-6">
                 <!-- Assignment content will be inserted here -->
+            </div>
+            <!-- Answers Area (hidden by default) -->
+            <div id="answers-area" class="mt-6 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">Answer Key</h2>
+                    <button id="download-answers-pdf-button"
+                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 transition-colors duration-200">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export Answers to PDF
+                    </button>
+                </div>
+                <div id="answers-sheet" class="bg-white border border-gray-200 rounded-lg p-6">
+                    <!-- Answers content will be inserted here -->
+                </div>
             </div>
         </div>
     </div>
@@ -213,10 +237,17 @@
         const generateButton = document.getElementById('generate-button');
         const outputArea = document.getElementById('output-area');
         const downloadPdfButton = document.getElementById('download-pdf-button');
+        const generateAnswersButton = document.getElementById('generate-answers-button');
+        const answersArea = document.getElementById('answers-area');
+        const answersSheet = document.getElementById('answers-sheet');
+        const downloadAnswersPdfButton = document.getElementById('download-answers-pdf-button');
         const statusMessage = document.getElementById('status-message');
         const loadingIndicator = document.getElementById('loading-indicator');
         const apiKeyWarning = document.getElementById('api-key-warning');
         const assignmentSheet = document.getElementById('assignment-sheet');
+        
+        // Store current questions for answer generation
+        let currentQuestions = [];
 
         // ============================================
         // API KEY SETUP INSTRUCTIONS:
@@ -335,6 +366,10 @@
                     </svg>
                     Generate Summary
                 `;
+                
+                // Hide answers button in summary mode
+                generateAnswersButton.classList.add('hidden');
+                answersArea.classList.add('hidden');
             }
         }
 
@@ -1047,8 +1082,13 @@ Generate the summary:`;
                         throw new Error("No questions were generated. Please try again with a different example question. The AI response may not have been in the expected format.");
                     }
 
+                    // Store questions for answer generation
+                    currentQuestions = finalQuestions;
+                    
                     renderAssignmentSheet(classValue, subjectModule, finalQuestions);
                     outputArea.classList.remove('hidden');
+                    generateAnswersButton.classList.remove('hidden'); // Show answers button for assignment mode
+                    answersArea.classList.add('hidden'); // Hide answers area initially
                     showStatus(`Successfully generated ${finalQuestions.length} question${finalQuestions.length !== 1 ? 's' : ''}!`, false);
                 } else {
                     // Render summary
@@ -1072,6 +1112,108 @@ Generate the summary:`;
                 showStatus("PDF exported successfully!", false);
             } catch (error) {
                 console.error('Error exporting PDF:', error);
+                showStatus(`Error exporting PDF: ${error.message}`, true);
+            }
+        });
+
+        // Generate answers button handler
+        generateAnswersButton.addEventListener('click', async () => {
+            if (currentQuestions.length === 0) {
+                showStatus("No questions available. Please generate questions first.", true);
+                return;
+            }
+
+            const classValue = classInput.value.trim();
+            const subjectModule = subjectModuleInput.value.trim();
+            const difficulty = difficultyInput.value;
+
+            showLoading();
+            generateAnswersButton.disabled = true;
+
+            try {
+                const answersText = await generateAnswers(currentQuestions, classValue, subjectModule, difficulty);
+                renderAnswersSheet(classValue, subjectModule, answersText);
+                answersArea.classList.remove('hidden');
+                showStatus('Successfully generated answers!', false);
+            } catch (error) {
+                console.error('Error generating answers:', error);
+                showStatus(`Error: ${error.message}`, true);
+            } finally {
+                hideLoading();
+                generateAnswersButton.disabled = false;
+            }
+        });
+
+        // PDF export for answers button handler
+        downloadAnswersPdfButton.addEventListener('click', () => {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                const classValue = classInput.value;
+                const subjectModule = subjectModuleInput.value;
+                const date = new Date().toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+
+                // Get answers text
+                const answersText = answersSheet.textContent || answersSheet.innerText;
+
+                doc.setFont('helvetica');
+                
+                // Title
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Answer Key', 105, 20, { align: 'center' });
+                
+                // Class, Subject, Date
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Class: ${classValue}`, 105, 30, { align: 'center' });
+                doc.text(`Subject Module: ${subjectModule}`, 105, 36, { align: 'center' });
+                doc.text(`Date: ${date}`, 105, 42, { align: 'center' });
+                
+                // Answers
+                let yPos = 55;
+                doc.setFontSize(10);
+                
+                const paragraphs = answersText.split('\n').filter(p => p.trim());
+                
+                paragraphs.forEach(para => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    const lines = doc.splitTextToSize(para.trim(), 180);
+                    lines.forEach(line => {
+                        if (yPos > 270) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        doc.text(line, 15, yPos);
+                        yPos += 5;
+                    });
+                    
+                    yPos += 2;
+                });
+                
+                // Footer
+                const pageCount = doc.internal.pages.length - 1;
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(9);
+                    doc.text('Answer Key', 105, 285, { align: 'center' });
+                }
+                
+                // Save PDF
+                const fileName = `AnswerKey_${classValue.replace(/\s+/g, '_')}_${date.replace(/\s+/g, '_')}.pdf`;
+                doc.save(fileName);
+                showStatus("Answers PDF exported successfully!", false);
+            } catch (error) {
+                console.error('Error exporting answers PDF:', error);
                 showStatus(`Error exporting PDF: ${error.message}`, true);
             }
         });
