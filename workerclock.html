@@ -329,6 +329,11 @@
          */
         async function startCamera() {
             try {
+                // Stop any existing stream first
+                if (currentStream) {
+                    stopCamera();
+                }
+                
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'user', // Front camera
@@ -341,7 +346,21 @@
                 videoPreview.srcObject = stream;
                 cameraSection.classList.remove('hidden');
                 
-                return stream;
+                // Wait for video to be ready
+                return new Promise((resolve, reject) => {
+                    videoPreview.onloadedmetadata = () => {
+                        resolve(stream);
+                    };
+                    videoPreview.onerror = (error) => {
+                        reject(new Error('Camera initialization failed'));
+                    };
+                    // Timeout after 5 seconds
+                    setTimeout(() => {
+                        if (videoPreview.readyState < 2) {
+                            reject(new Error('Camera took too long to initialize'));
+                        }
+                    }, 5000);
+                });
             } catch (error) {
                 throw new Error('Camera access denied. Please allow camera permissions.');
             }
@@ -366,14 +385,21 @@
             const video = videoPreview;
             const canvas = canvasCapture;
             
+            // Check if video is ready
+            if (!video || !video.videoWidth || !video.videoHeight) {
+                throw new Error('Video not ready. Please wait for camera to initialize.');
+            }
+            
+            // Set canvas dimensions to match video
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             
+            // Draw video frame to canvas
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            // Convert to base64
-            return canvas.toDataURL('image/jpeg', 0.9);
+            // Convert to base64 (use lower quality to reduce size and prevent stack overflow)
+            return canvas.toDataURL('image/jpeg', 0.85);
         }
         
         /**
@@ -427,9 +453,10 @@
          */
         async function recognizeFace(imageData, location, action) {
             try {
-                // Convert base64 to blob
-                const base64Data = imageData.split(',')[1];
-                const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                // Extract base64 data (remove data:image/jpeg;base64, prefix if present)
+                const base64Data = imageData.includes(',') 
+                    ? imageData.split(',')[1] 
+                    : imageData;
                 
                 // Create prompt for face recognition
                 // Optimized for construction/industrial workers with safety gear
@@ -479,7 +506,7 @@ If this appears to be a different person, respond with: "NOT_VERIFIED: [specific
 
 Be accurate but account for changes in appearance due to work conditions.`;
                 
-                // Prepare request
+                // Prepare request - use base64 data directly (API expects base64 string)
                 const requestBody = {
                     contents: [{
                         parts: [
@@ -487,7 +514,7 @@ Be accurate but account for changes in appearance due to work conditions.`;
                             {
                                 inline_data: {
                                     mime_type: "image/jpeg",
-                                    data: btoa(String.fromCharCode(...imageBytes))
+                                    data: base64Data
                                 }
                             }
                         ]
