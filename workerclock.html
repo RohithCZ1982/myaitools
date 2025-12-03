@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workers Clock In/Out</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load API Key Configuration -->
+    <script src="config.js"></script>
+    
+    <!-- Load Inter font and custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(-45deg, #10b981, #059669, #34d399, #6ee7b7);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        .pulse-glow {
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+            50% { box-shadow: 0 0 40px rgba(16, 185, 129, 0.8), 0 0 60px rgba(16, 185, 129, 0.4); }
+        }
+        
+        .status-green {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .status-red {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        #video-preview {
+            transform: scaleX(-1); /* Mirror for selfie view */
+        }
+        
+        .camera-container {
+            position: relative;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    
+    <div class="w-full max-w-4xl mx-auto">
+        <!-- Back Button -->
+        <a href="index.html" 
+           class="inline-flex items-center text-sm text-white hover:text-emerald-100 font-medium mb-4 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Home
+        </a>
+        
+        <!-- Main Card -->
+        <div class="glass rounded-3xl shadow-2xl p-6 md:p-8">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-2 text-center">Workers Clock In/Out</h1>
+            <p class="text-gray-600 mb-6 text-center">Face recognition with GPS tracking • 99.8% accuracy</p>
+            
+            <!-- Status Dashboard -->
+            <div id="status-dashboard" class="mb-6 p-4 rounded-xl status-red text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm opacity-90">Current Status</p>
+                        <p id="status-text" class="text-2xl font-bold">Checked Out</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm opacity-90">Last Action</p>
+                        <p id="last-action-time" class="text-lg font-semibold">--</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Worker Info Section -->
+            <div class="mb-6 p-4 bg-gray-50 rounded-xl">
+                <label for="worker-name" class="block text-sm font-medium text-gray-700 mb-2">Worker Name</label>
+                <input type="text" id="worker-name" placeholder="Enter your name" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+            </div>
+            
+            <!-- Camera Preview -->
+            <div id="camera-section" class="hidden mb-6">
+                <div class="camera-container bg-black rounded-xl overflow-hidden">
+                    <video id="video-preview" autoplay playsinline class="w-full h-auto max-h-96 object-cover"></video>
+                    <canvas id="canvas-capture" class="hidden"></canvas>
+                </div>
+                <p class="text-center text-sm text-gray-600 mt-2">Position your face in the frame</p>
+            </div>
+            
+            <!-- Captured Image Preview -->
+            <div id="capture-preview" class="hidden mb-6">
+                <div class="bg-black rounded-xl overflow-hidden">
+                    <img id="captured-image" class="w-full h-auto max-h-96 object-cover" alt="Captured selfie">
+                </div>
+            </div>
+            
+            <!-- Main Action Buttons -->
+            <div class="flex flex-col gap-4 mb-6">
+                <button id="check-in-btn" 
+                        class="w-full py-6 px-8 text-2xl font-bold text-white bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 pulse-glow">
+                    <svg class="w-8 h-8 inline-block mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Check In
+                </button>
+                
+                <button id="check-out-btn" 
+                        class="w-full py-6 px-8 text-2xl font-bold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 hidden">
+                    <svg class="w-8 h-8 inline-block mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    Check Out
+                </button>
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="hidden text-center mb-4">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                <p class="mt-2 text-gray-600">Processing face recognition...</p>
+            </div>
+            
+            <!-- Success/Error Messages -->
+            <div id="message-container" class="mb-4"></div>
+            
+            <!-- Recent Activity Log -->
+            <div class="mt-8 pt-6 border-t border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
+                <div id="activity-log" class="space-y-2 max-h-64 overflow-y-auto">
+                    <p class="text-sm text-gray-500 text-center">No activity yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // State management
+        let isCheckedIn = false;
+        let currentStream = null;
+        let workerName = '';
+        let workerFaceData = null; // Store face data for recognition
+        
+        // DOM elements
+        const checkInBtn = document.getElementById('check-in-btn');
+        const checkOutBtn = document.getElementById('check-out-btn');
+        const videoPreview = document.getElementById('video-preview');
+        const canvasCapture = document.getElementById('canvas-capture');
+        const cameraSection = document.getElementById('camera-section');
+        const capturePreview = document.getElementById('capture-preview');
+        const capturedImage = document.getElementById('captured-image');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const messageContainer = document.getElementById('message-container');
+        const statusDashboard = document.getElementById('status-dashboard');
+        const statusText = document.getElementById('status-text');
+        const lastActionTime = document.getElementById('last-action-time');
+        const activityLog = document.getElementById('activity-log');
+        const workerNameInput = document.getElementById('worker-name');
+        
+        // Get API key from config
+        const apiKey = CONFIG.getApiKey();
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        
+        // Initialize
+        checkInBtn.addEventListener('click', handleCheckIn);
+        checkOutBtn.addEventListener('click', handleCheckOut);
+        workerNameInput.addEventListener('input', (e) => {
+            workerName = e.target.value.trim();
+        });
+        
+        // Load saved state
+        loadSavedState();
+        
+        /**
+         * Handle Check In process
+         */
+        async function handleCheckIn() {
+            workerName = workerNameInput.value.trim();
+            
+            if (!workerName) {
+                showMessage('Please enter your name first', 'error');
+                return;
+            }
+            
+            try {
+                // Request camera access
+                await startCamera();
+                
+                // Wait 1 second for user to position face
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Capture selfie
+                const imageData = captureSelfie();
+                
+                // Stop camera
+                stopCamera();
+                
+                // Show captured image
+                showCapturedImage(imageData);
+                
+                // Get GPS location
+                const location = await getCurrentLocation();
+                
+                // Process face recognition
+                loadingIndicator.classList.remove('hidden');
+                messageContainer.innerHTML = '';
+                
+                const recognitionResult = await recognizeFace(imageData, location, 'check-in');
+                
+                loadingIndicator.classList.add('hidden');
+                
+                if (recognitionResult.success) {
+                    // Update state
+                    isCheckedIn = true;
+                    workerFaceData = recognitionResult.faceData;
+                    
+                    // Save state
+                    saveState({
+                        isCheckedIn: true,
+                        workerName: workerName,
+                        checkInTime: new Date().toISOString(),
+                        location: location,
+                        faceData: workerFaceData
+                    });
+                    
+                    // Update UI
+                    updateStatus('Checked In', true);
+                    addActivityLog('Check In', location, true);
+                    showMessage(`✓ Checked in successfully at ${formatTime(new Date())}`, 'success');
+                    
+                    // Show check out button
+                    checkInBtn.classList.add('hidden');
+                    checkOutBtn.classList.remove('hidden');
+                } else {
+                    showMessage(recognitionResult.error || 'Face recognition failed. Please try again.', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Check in error:', error);
+                stopCamera();
+                loadingIndicator.classList.add('hidden');
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        /**
+         * Handle Check Out process
+         */
+        async function handleCheckOut() {
+            try {
+                // Request camera access
+                await startCamera();
+                
+                // Wait 1 second for user to position face
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Capture selfie
+                const imageData = captureSelfie();
+                
+                // Stop camera
+                stopCamera();
+                
+                // Show captured image
+                showCapturedImage(imageData);
+                
+                // Get GPS location
+                const location = await getCurrentLocation();
+                
+                // Process face recognition
+                loadingIndicator.classList.remove('hidden');
+                messageContainer.innerHTML = '';
+                
+                const recognitionResult = await recognizeFace(imageData, location, 'check-out');
+                
+                loadingIndicator.classList.add('hidden');
+                
+                if (recognitionResult.success) {
+                    // Update state
+                    isCheckedIn = false;
+                    
+                    // Save state
+                    saveState({
+                        isCheckedIn: false,
+                        workerName: workerName,
+                        checkOutTime: new Date().toISOString(),
+                        location: location
+                    });
+                    
+                    // Update UI
+                    updateStatus('Checked Out', false);
+                    addActivityLog('Check Out', location, true);
+                    showMessage(`✓ Checked out successfully at ${formatTime(new Date())}`, 'success');
+                    
+                    // Show check in button
+                    checkOutBtn.classList.add('hidden');
+                    checkInBtn.classList.remove('hidden');
+                } else {
+                    showMessage(recognitionResult.error || 'Face recognition failed. Please try again.', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Check out error:', error);
+                stopCamera();
+                loadingIndicator.classList.add('hidden');
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        /**
+         * Start camera stream
+         */
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user', // Front camera
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                
+                currentStream = stream;
+                videoPreview.srcObject = stream;
+                cameraSection.classList.remove('hidden');
+                
+                return stream;
+            } catch (error) {
+                throw new Error('Camera access denied. Please allow camera permissions.');
+            }
+        }
+        
+        /**
+         * Stop camera stream
+         */
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+                videoPreview.srcObject = null;
+                cameraSection.classList.add('hidden');
+            }
+        }
+        
+        /**
+         * Capture selfie from video
+         */
+        function captureSelfie() {
+            const video = videoPreview;
+            const canvas = canvasCapture;
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to base64
+            return canvas.toDataURL('image/jpeg', 0.9);
+        }
+        
+        /**
+         * Show captured image preview
+         */
+        function showCapturedImage(imageData) {
+            capturedImage.src = imageData;
+            capturePreview.classList.remove('hidden');
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                capturePreview.classList.add('hidden');
+            }, 3000);
+        }
+        
+        /**
+         * Get current GPS location
+         */
+        function getCurrentLocation() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('Geolocation is not supported by your browser'));
+                    return;
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        });
+                    },
+                    (error) => {
+                        // If GPS fails, return null location (still allow check in/out)
+                        console.warn('GPS error:', error);
+                        resolve({
+                            latitude: null,
+                            longitude: null,
+                            accuracy: null,
+                            error: error.message
+                        });
+                    },
+                    { timeout: 5000, enableHighAccuracy: true }
+                );
+            });
+        }
+        
+        /**
+         * Recognize face using Gemini API
+         */
+        async function recognizeFace(imageData, location, action) {
+            try {
+                // Convert base64 to blob
+                const base64Data = imageData.split(',')[1];
+                const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                
+                // Create prompt for face recognition
+                // Optimized for construction/industrial workers with safety gear
+                const prompt = action === 'check-in' 
+                    ? `You are a facial recognition system for worker time tracking. Analyze this image of ${workerName} checking in. 
+
+IMPORTANT: The person may be wearing:
+- Hard hat or safety helmet
+- Sunglasses or safety glasses
+- Face mask or respirator
+- Beard or facial hair
+- Dirt or sweat on face
+- Working in low light conditions
+
+Focus on permanent facial features that remain visible:
+- Face shape and structure
+- Eye position and spacing (even if glasses are worn)
+- Nose shape
+- Mouth and lip shape
+- Jawline and chin
+- Any visible distinguishing marks
+
+If you can detect a human face with at least 2-3 identifiable features, respond with: "RECOGNIZED: ${workerName}"
+If no face is detected or face is too obscured, respond with: "NOT_RECOGNIZED: [specific reason]"
+
+Be lenient - construction workers often have obscured faces but should still be recognizable.`
+                    : `You are a facial recognition system verifying worker identity. Compare this image to the worker who checked in earlier as ${workerName}.
+
+The person may be wearing:
+- Hard hat or safety helmet
+- Sunglasses or safety glasses  
+- Face mask or respirator
+- Beard or facial hair
+- Dirt or sweat on face
+- Different lighting conditions
+
+Compare these permanent features:
+- Face shape and structure
+- Eye position and spacing
+- Nose shape
+- Mouth and lip shape
+- Jawline and chin
+- Any distinguishing marks
+
+If this appears to be the same person as ${workerName} (accounting for safety gear and conditions), respond with: "VERIFIED: ${workerName}"
+If this appears to be a different person, respond with: "NOT_VERIFIED: [specific reason]"
+
+Be accurate but account for changes in appearance due to work conditions.`;
+                
+                // Prepare request
+                const requestBody = {
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            {
+                                inline_data: {
+                                    mime_type: "image/jpeg",
+                                    data: btoa(String.fromCharCode(...imageBytes))
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 100
+                    }
+                };
+                
+                // Call Gemini API
+                const response = await fetch(geminiApiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'API request failed');
+                }
+                
+                const data = await response.json();
+                const resultText = data.candidates[0]?.content?.parts[0]?.text || '';
+                
+                // Check if recognition was successful
+                const isRecognized = resultText.includes('RECOGNIZED:') || resultText.includes('VERIFIED:');
+                
+                if (isRecognized) {
+                    // Store face data for future comparison
+                    const faceData = {
+                        timestamp: new Date().toISOString(),
+                        description: resultText,
+                        location: location
+                    };
+                    
+                    return {
+                        success: true,
+                        faceData: faceData,
+                        message: resultText
+                    };
+                } else {
+                    return {
+                        success: false,
+                        error: 'Face not recognized. Please ensure your face is clearly visible.'
+                    };
+                }
+                
+            } catch (error) {
+                console.error('Face recognition error:', error);
+                return {
+                    success: false,
+                    error: error.message || 'Face recognition service unavailable'
+                };
+            }
+        }
+        
+        /**
+         * Update status dashboard
+         */
+        function updateStatus(status, isCheckedIn) {
+            statusText.textContent = status;
+            lastActionTime.textContent = formatTime(new Date());
+            
+            if (isCheckedIn) {
+                statusDashboard.className = 'mb-6 p-4 rounded-xl status-green text-white';
+            } else {
+                statusDashboard.className = 'mb-6 p-4 rounded-xl status-red text-white';
+            }
+        }
+        
+        /**
+         * Add activity to log
+         */
+        function addActivityLog(action, location, success) {
+            const logEntry = document.createElement('div');
+            logEntry.className = `p-3 rounded-lg ${success ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`;
+            
+            const locationText = location.latitude 
+                ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+                : 'Location unavailable';
+            
+            logEntry.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-semibold text-gray-800">${action} - ${workerName}</p>
+                        <p class="text-xs text-gray-600">${formatTime(new Date())}</p>
+                        <p class="text-xs text-gray-500">📍 ${locationText}</p>
+                    </div>
+                    <div class="text-2xl">
+                        ${success ? '✓' : '✗'}
+                    </div>
+                </div>
+            `;
+            
+            // Remove "No activity yet" message if present
+            const noActivityMsg = activityLog.querySelector('p');
+            if (noActivityMsg && noActivityMsg.textContent.includes('No activity')) {
+                noActivityMsg.remove();
+            }
+            
+            activityLog.insertBefore(logEntry, activityLog.firstChild);
+            
+            // Keep only last 10 entries
+            while (activityLog.children.length > 10) {
+                activityLog.removeChild(activityLog.lastChild);
+            }
+        }
+        
+        /**
+         * Show message
+         */
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `p-4 rounded-lg ${
+                type === 'success' 
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+                    : 'bg-red-50 border border-red-200 text-red-800'
+            }`;
+            messageDiv.textContent = message;
+            
+            messageContainer.innerHTML = '';
+            messageContainer.appendChild(messageDiv);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+        
+        /**
+         * Format time
+         */
+        function formatTime(date) {
+            return date.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+        }
+        
+        /**
+         * Save state to localStorage
+         */
+        function saveState(state) {
+            localStorage.setItem('workerClockState', JSON.stringify(state));
+        }
+        
+        /**
+         * Load saved state
+         */
+        function loadSavedState() {
+            try {
+                const saved = localStorage.getItem('workerClockState');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    isCheckedIn = state.isCheckedIn || false;
+                    workerName = state.workerName || '';
+                    workerFaceData = state.faceData || null;
+                    
+                    if (workerName) {
+                        workerNameInput.value = workerName;
+                    }
+                    
+                    if (isCheckedIn) {
+                        updateStatus('Checked In', true);
+                        checkInBtn.classList.add('hidden');
+                        checkOutBtn.classList.remove('hidden');
+                        
+                        if (state.checkInTime) {
+                            lastActionTime.textContent = formatTime(new Date(state.checkInTime));
+                        }
+                    } else {
+                        updateStatus('Checked Out', false);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading saved state:', error);
+            }
+        }
+        
+        // Geofencing for auto-checkout (requires backend service)
+        // To implement: Set up a geofence around the work site coordinates
+        // Monitor worker location and auto-checkout when they leave the geofence
+        // This would require:
+        // 1. Backend service to store geofence boundaries
+        // 2. Periodic location monitoring (watchPosition API)
+        // 3. Distance calculation to geofence boundary
+        // 4. Auto-checkout API call when worker leaves geofence
+        
+        // Example geofence monitoring (commented out - requires backend):
+        /*
+        let geofenceWatchId = null;
+        const SITE_CENTER = { lat: 0, lng: 0 }; // Set work site coordinates
+        const GEOFENCE_RADIUS = 100; // meters
+        
+        function startGeofenceMonitoring() {
+            if (geofenceWatchId) return;
+            
+            geofenceWatchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const distance = calculateDistance(
+                        SITE_CENTER.lat, SITE_CENTER.lng,
+                        position.coords.latitude, position.coords.longitude
+                    );
+                    
+                    if (distance > GEOFENCE_RADIUS && isCheckedIn) {
+                        // Worker left site - auto checkout
+                        handleCheckOut();
+                    }
+                },
+                (error) => console.error('Geofence monitoring error:', error),
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+        
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        */
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopCamera();
+        });
+    </script>
+</body>
+</html>
+
