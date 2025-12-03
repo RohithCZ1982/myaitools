@@ -2,9 +2,13 @@ services:
   - type: web
     name: worker-clock-api
     env: python
-    buildCommand: pip install --prefer-binary -r requirements.txt
+    buildCommand: mkdir -p /tmp/cargo && pip install --upgrade pip setuptools wheel && pip install --prefer-binary --no-cache-dir -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: CARGO_HOME
+        value: /tmp/cargo
+      - key: RUST_BACKTRACE
+        value: "1"
 
