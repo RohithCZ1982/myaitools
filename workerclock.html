@@ -177,7 +177,17 @@
         
         // Get API key from config
         const apiKey = CONFIG.getApiKey();
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        
+        // Model fallback list - try newer models first, fallback to older ones
+        const MODEL_OPTIONS = [
+            'gemini-2.0-flash-001',
+            'gemini-2.5-pro'
+        ];
+        
+        // Function to get API URL for a specific model
+        function getGeminiApiUrl(modelName) {
+            return `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        }
         
         // Initialize
         checkInBtn.addEventListener('click', handleCheckIn);
@@ -449,9 +459,9 @@
         }
         
         /**
-         * Recognize face using Gemini API
+         * Recognize face using Gemini API with model fallback
          */
-        async function recognizeFace(imageData, location, action) {
+        async function recognizeFace(imageData, location, action, modelIndex = 0) {
             try {
                 // Extract base64 data (remove data:image/jpeg;base64, prefix if present)
                 const base64Data = imageData.includes(',') 
@@ -525,22 +535,82 @@ Be accurate but account for changes in appearance due to work conditions.`;
                     }
                 };
                 
-                // Call Gemini API
-                const response = await fetch(geminiApiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error?.message || 'API request failed');
+                // Try models in order, fallback to next if current fails
+                if (modelIndex >= MODEL_OPTIONS.length) {
+                    throw new Error('All available models failed. Please check your API key and model availability.');
                 }
                 
-                const data = await response.json();
-                const resultText = data.candidates[0]?.content?.parts[0]?.text || '';
+                const currentModel = MODEL_OPTIONS[modelIndex];
+                const apiUrl = getGeminiApiUrl(currentModel);
+                
+                // Call Gemini API
+                let response;
+                let data;
+                
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    data = await response.json();
+                    
+                    // If model not found, try next model
+                    if (!response.ok && (response.status === 404 || data.error?.message?.includes('not found'))) {
+                        console.log(`Model ${currentModel} not available, trying next model...`);
+                        return recognizeFace(imageData, location, action, modelIndex + 1);
+                    }
+                    
+                    if (!response.ok) {
+                        const errorMessage = data.error?.message || data.message || `HTTP ${response.status}: ${response.statusText}`;
+                        throw new Error(errorMessage);
+                    }
+                } catch (fetchError) {
+                    // If fetch fails and we have more models to try, attempt next model
+                    if (modelIndex < MODEL_OPTIONS.length - 1) {
+                        console.log(`Error with ${currentModel}, trying next model...`, fetchError);
+                        return recognizeFace(imageData, location, action, modelIndex + 1);
+                    }
+                    throw fetchError;
+                }
+                
+                // Handle different possible response structures
+                let resultText = '';
+                
+                // Try standard structure first (most common)
+                if (data && data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
+                    const candidate = data.candidates[0];
+                    if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
+                        resultText = candidate.content.parts[0].text || '';
+                    }
+                }
+                // Try alternative structure (some API versions)
+                else if (data && data.candidate && data.candidate.content && data.candidate.content.parts) {
+                    const parts = Array.isArray(data.candidate.content.parts) ? data.candidate.content.parts : [data.candidate.content.parts];
+                    if (parts.length > 0 && parts[0]) {
+                        resultText = parts[0].text || '';
+                    }
+                }
+                // Try direct text response
+                else if (data && data.text) {
+                    resultText = data.text;
+                }
+                // Check for safety filter blocking
+                else if (data && data.promptFeedback) {
+                    throw new Error(data.promptFeedback.blockReason || 'Content was blocked by safety filters');
+                }
+                
+                if (!resultText) {
+                    console.error('Unexpected API response structure:', data);
+                    // If we have more models to try, attempt next model
+                    if (modelIndex < MODEL_OPTIONS.length - 1) {
+                        return recognizeFace(imageData, location, action, modelIndex + 1);
+                    }
+                    throw new Error('API returned unexpected response format. Please check console for details.');
+                }
                 
                 // Check if recognition was successful
                 const isRecognized = resultText.includes('RECOGNIZED:') || resultText.includes('VERIFIED:');
@@ -559,17 +629,27 @@ Be accurate but account for changes in appearance due to work conditions.`;
                         message: resultText
                     };
                 } else {
+                    // Check if there's a specific reason in the response
+                    const reason = resultText.includes('NOT_RECOGNIZED:') || resultText.includes('NOT_VERIFIED:')
+                        ? resultText.split(':')[1]?.trim() || 'Face not recognized'
+                        : 'Face not recognized. Please ensure your face is clearly visible.';
+                    
                     return {
                         success: false,
-                        error: 'Face not recognized. Please ensure your face is clearly visible.'
+                        error: reason
                     };
                 }
                 
             } catch (error) {
                 console.error('Face recognition error:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                
                 return {
                     success: false,
-                    error: error.message || 'Face recognition service unavailable'
+                    error: error.message || 'Face recognition service unavailable. Please try again.'
                 };
             }
         }
