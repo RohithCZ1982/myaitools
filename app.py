@@ -512,7 +512,8 @@ def delete_clock_records_bulk(request: BulkDeleteRequest):
                 else:
                     cursor.execute("DELETE FROM clock_records WHERE id = ?", (record_id,))
                 deleted_count += cursor.rowcount
-            except Exception:
+            except Exception as e:
+                print(f"Error deleting record {record_id}: {e}")
                 continue  # Skip if record doesn't exist
         
         conn.commit()
@@ -522,7 +523,8 @@ def delete_clock_records_bulk(request: BulkDeleteRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error in bulk delete: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete records: {str(e)}")
 
 @app.get("/api/clock/{record_id}/image")
 def get_decrypted_image(record_id: int):

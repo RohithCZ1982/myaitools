@@ -565,8 +565,14 @@
                 });
                 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.detail || 'Failed to delete records');
+                    let errorMessage = 'Failed to delete records';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorData.message || errorMessage;
+                    } catch (e) {
+                        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 const result = await response.json();
@@ -583,7 +589,9 @@
                 
             } catch (error) {
                 console.error('Error deleting records:', error);
-                alert(`Error deleting records: ${error.message}`);
+                // Extract error message properly
+                const errorMessage = error instanceof Error ? error.message : (error?.detail || error?.message || String(error) || 'Unknown error occurred');
+                alert(`Error deleting records: ${errorMessage}`);
             }
         }
         
