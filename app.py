@@ -11,6 +11,7 @@ from typing import List, Optional
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import httpx
 
 app = FastAPI(title="Workers Clock In/Out API")
 
@@ -183,6 +184,7 @@ class ClockRecordResponse(BaseModel):
     accuracy: Optional[float]
     face_data: Optional[str]
     encrypted_image: Optional[str] = None  # Encrypted image (not decrypted in response by default)
+    address: Optional[str] = None  # Physical address (computed from coordinates)
     created_at: str
 
 @app.get("/")
@@ -255,7 +257,7 @@ def serve_css(filename: str):
     raise HTTPException(status_code=404, detail="File not found")
 
 @app.post("/api/clock", response_model=ClockRecordResponse)
-def create_clock_record(record: ClockRecord):
+async def create_clock_record(record: ClockRecord):
     """Save a clock in/out record with encrypted image"""
     try:
         conn = get_db_connection()
@@ -313,6 +315,15 @@ def create_clock_record(record: ClockRecord):
         row = cursor.fetchone()
         conn.close()
         
+        # Optionally get address if coordinates exist
+        address = None
+        if row[4] is not None and row[5] is not None:
+            try:
+                geocode_result = await reverse_geocode_coords(row[4], row[5])
+                address = geocode_result.get("address", None)
+            except Exception:
+                address = None
+        
         return ClockRecordResponse(
             id=row[0],
             worker_name=row[1],
@@ -323,6 +334,7 @@ def create_clock_record(record: ClockRecord):
             accuracy=row[6],
             face_data=row[7],
             encrypted_image=row[8] if len(row) > 8 else None,
+            address=address,
             created_at=str(row[9] if len(row) > 9 else row[8])
         )
     except HTTPException:
@@ -331,8 +343,8 @@ def create_clock_record(record: ClockRecord):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/clock", response_model=List[ClockRecordResponse])
-def get_clock_records(worker_name: Optional[str] = None, limit: int = 100):
-    """Get clock records, optionally filtered by worker name"""
+async def get_clock_records(worker_name: Optional[str] = None, limit: int = 100, include_address: bool = False):
+    """Get clock records, optionally filtered by worker name. Set include_address=True to get physical addresses."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -371,6 +383,16 @@ def get_clock_records(worker_name: Optional[str] = None, limit: int = 100):
         
         records = []
         for row in rows:
+            address = None
+            # If include_address is True and we have coordinates, get the address
+            if include_address and row[4] is not None and row[5] is not None:
+                try:
+                    geocode_result = await reverse_geocode_coords(row[4], row[5])
+                    address = geocode_result.get("address", None)
+                except Exception as e:
+                    # If geocoding fails, just leave address as None
+                    address = None
+            
             records.append(ClockRecordResponse(
                 id=row[0],
                 worker_name=row[1],
@@ -381,6 +403,7 @@ def get_clock_records(worker_name: Optional[str] = None, limit: int = 100):
                 accuracy=row[6],
                 face_data=row[7],
                 encrypted_image=row[8] if len(row) > 8 else None,
+                address=address,
                 created_at=str(row[9] if len(row) > 9 else row[8])
             ))
         
@@ -464,6 +487,76 @@ def get_decrypted_image(record_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+async def reverse_geocode_coords(latitude: float, longitude: float):
+    """Convert GPS coordinates to physical address using OpenStreetMap Nominatim (internal function)"""
+    try:
+        # Use OpenStreetMap Nominatim API (free, no API key required)
+        url = "https://nominatim.openstreetmap.org/reverse"
+        params = {
+            "lat": latitude,
+            "lon": longitude,
+            "format": "json",
+            "addressdetails": 1
+        }
+        headers = {
+            "User-Agent": "WorkersClockApp/1.0"  # Required by Nominatim usage policy
+        }
+        
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(url, params=params, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+        
+        if "error" in data:
+            return {
+                "address": "Address not found",
+                "coordinates": f"{latitude}, {longitude}"
+            }
+        
+        # Extract address components
+        address_parts = data.get("address", {})
+        address_components = []
+        
+        # Build address from most specific to least specific
+        if address_parts.get("house_number"):
+            address_components.append(address_parts["house_number"])
+        if address_parts.get("road"):
+            address_components.append(address_parts["road"])
+        if address_parts.get("suburb") or address_parts.get("neighbourhood"):
+            address_components.append(address_parts.get("suburb") or address_parts.get("neighbourhood"))
+        if address_parts.get("city") or address_parts.get("town") or address_parts.get("village"):
+            address_components.append(address_parts.get("city") or address_parts.get("town") or address_parts.get("village"))
+        if address_parts.get("state"):
+            address_components.append(address_parts["state"])
+        if address_parts.get("postcode"):
+            address_components.append(address_parts["postcode"])
+        if address_parts.get("country"):
+            address_components.append(address_parts["country"])
+        
+        # If we have components, join them; otherwise use display_name
+        if address_components:
+            formatted_address = ", ".join(address_components)
+        else:
+            formatted_address = data.get("display_name", f"{latitude}, {longitude}")
+        
+        return {
+            "address": formatted_address,
+            "coordinates": f"{latitude}, {longitude}",
+            "raw": data.get("display_name", "")
+        }
+        
+    except httpx.TimeoutException:
+        return {
+            "address": "Geocoding timeout",
+            "coordinates": f"{latitude}, {longitude}"
+        }
+    except Exception as e:
+        # Return coordinates if geocoding fails
+        return {
+            "address": f"Error: {str(e)}",
+            "coordinates": f"{latitude}, {longitude}"
+        }
 
 if __name__ == "__main__":
     import uvicorn
