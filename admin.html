@@ -150,11 +150,29 @@
                 <p id="error-text"></p>
             </div>
             
+            <!-- Delete Action Bar -->
+            <div id="delete-action-bar" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span id="selected-count" class="font-semibold text-red-800">0</span>
+                    <span class="text-red-700">record(s) selected</span>
+                </div>
+                <button onclick="deleteSelectedRecords()" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    Delete Selected
+                </button>
+            </div>
+            
             <!-- Records Table -->
             <div id="records-container" class="hidden overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
                 <table class="min-w-full bg-white">
                     <thead class="bg-emerald-50">
                         <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap w-12">
+                                <input type="checkbox" id="select-all-checkbox" class="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500" onchange="toggleSelectAll(this.checked)">
+                            </th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Name</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Check-in Time</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Check-out Time</th>
@@ -326,7 +344,21 @@
                         return `<span class="text-xs text-gray-600">${coordText}</span>`;
                     };
                     
+                    // Collect record IDs for this row (check-in and/or check-out)
+                    const recordIds = [];
+                    if (checkIn) recordIds.push(checkIn.id);
+                    if (checkOut) recordIds.push(checkOut.id);
+                    const rowId = `row-${recordIds.join('-')}`;
+                    
+                    row.id = rowId;
+                    row.setAttribute('data-record-ids', JSON.stringify(recordIds));
+                    
                     row.innerHTML = `
+                        <td class="px-4 py-3 text-center">
+                            <input type="checkbox" class="row-checkbox w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500" 
+                                   data-row-id="${rowId}" 
+                                   onchange="updateSelection()">
+                        </td>
                         <td class="px-4 py-3 text-sm font-semibold text-gray-800 ${i === 0 ? '' : 'text-gray-500'} whitespace-nowrap">
                             ${i === 0 ? workerName : ''}
                         </td>
@@ -469,6 +501,90 @@
             document.getElementById('filter-date').value = today;
             
             applyFilters();
+        }
+        
+        // Toggle select all checkboxes
+        function toggleSelectAll(checked) {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = checked;
+            });
+            updateSelection();
+        }
+        
+        // Update selection count and show/hide delete bar
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            const selectedCount = checkboxes.length;
+            const deleteBar = document.getElementById('delete-action-bar');
+            const selectedCountSpan = document.getElementById('selected-count');
+            
+            selectedCountSpan.textContent = selectedCount;
+            
+            if (selectedCount > 0) {
+                deleteBar.classList.remove('hidden');
+            } else {
+                deleteBar.classList.add('hidden');
+            }
+        }
+        
+        // Delete selected records
+        async function deleteSelectedRecords() {
+            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            
+            if (checkboxes.length === 0) {
+                alert('Please select at least one record to delete');
+                return;
+            }
+            
+            // Confirm deletion
+            const confirmMessage = `Are you sure you want to delete ${checkboxes.length} record(s)? This action cannot be undone.`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // Collect all record IDs from selected rows
+            const recordIds = new Set();
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                if (row) {
+                    const rowRecordIds = JSON.parse(row.getAttribute('data-record-ids') || '[]');
+                    rowRecordIds.forEach(id => recordIds.add(id));
+                }
+            });
+            
+            const idsArray = Array.from(recordIds);
+            
+            try {
+                const response = await fetch(`${BACKEND_API_URL}/api/clock/bulk`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ record_ids: idsArray })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || 'Failed to delete records');
+                }
+                
+                const result = await response.json();
+                
+                // Show success message
+                alert(`Successfully deleted ${result.deleted_count} record(s)`);
+                
+                // Refresh the data
+                await loadTodayRecords();
+                
+                // Reset selection
+                document.getElementById('select-all-checkbox').checked = false;
+                updateSelection();
+                
+            } catch (error) {
+                console.error('Error deleting records:', error);
+                alert(`Error deleting records: ${error.message}`);
+            }
         }
         
         // Refresh data

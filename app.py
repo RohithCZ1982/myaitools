@@ -457,6 +457,73 @@ def get_clock_stats(worker_name: Optional[str] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/clock/{record_id}")
+def delete_clock_record(record_id: int):
+    """Delete a clock record by ID"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if record exists
+        if USE_POSTGRES:
+            cursor.execute("SELECT id FROM clock_records WHERE id = %s", (record_id,))
+        else:
+            cursor.execute("SELECT id FROM clock_records WHERE id = ?", (record_id,))
+        
+        if not cursor.fetchone():
+            conn.close()
+            raise HTTPException(status_code=404, detail="Record not found")
+        
+        # Delete the record
+        if USE_POSTGRES:
+            cursor.execute("DELETE FROM clock_records WHERE id = %s", (record_id,))
+        else:
+            cursor.execute("DELETE FROM clock_records WHERE id = ?", (record_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return {"message": "Record deleted successfully", "id": record_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class BulkDeleteRequest(BaseModel):
+    record_ids: List[int]
+
+@app.delete("/api/clock/bulk")
+def delete_clock_records_bulk(request: BulkDeleteRequest):
+    """Delete multiple clock records by IDs"""
+    try:
+        record_ids = request.record_ids
+        if not record_ids or len(record_ids) == 0:
+            raise HTTPException(status_code=400, detail="No record IDs provided")
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        deleted_count = 0
+        
+        for record_id in record_ids:
+            try:
+                if USE_POSTGRES:
+                    cursor.execute("DELETE FROM clock_records WHERE id = %s", (record_id,))
+                else:
+                    cursor.execute("DELETE FROM clock_records WHERE id = ?", (record_id,))
+                deleted_count += cursor.rowcount
+            except Exception:
+                continue  # Skip if record doesn't exist
+        
+        conn.commit()
+        conn.close()
+        
+        return {"message": f"Deleted {deleted_count} record(s) successfully", "deleted_count": deleted_count}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/clock/{record_id}/image")
 def get_decrypted_image(record_id: int):
     """Get decrypted image for a specific record (for viewing)"""
