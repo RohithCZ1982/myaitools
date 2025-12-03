@@ -198,6 +198,27 @@ def api_info():
     """API information endpoint"""
     return {"message": "Workers Clock In/Out API", "status": "running"}
 
+# Serve JavaScript files from root
+@app.get("/{filename}.js")
+def serve_js(filename: str):
+    """Serve JavaScript files like /config.js, etc."""
+    # Don't serve files from api/ subdirectory via this route
+    if filename.startswith("api/"):
+        raise HTTPException(status_code=404, detail="File not found")
+    js_file = f"{filename}.js"
+    if os.path.exists(js_file):
+        return FileResponse(js_file, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="File not found")
+
+# Serve JavaScript files from api subdirectory
+@app.get("/api/{filename}.js")
+def serve_api_js(filename: str):
+    """Serve JavaScript files from api/ directory"""
+    js_file = f"api/{filename}.js"
+    if os.path.exists(js_file):
+        return FileResponse(js_file, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="File not found")
+
 # Serve HTML files directly
 @app.get("/{filename}.html")
 def serve_html(filename: str):
@@ -205,6 +226,32 @@ def serve_html(filename: str):
     html_file = f"{filename}.html"
     if os.path.exists(html_file):
         return FileResponse(html_file)
+    raise HTTPException(status_code=404, detail="File not found")
+
+# Serve image files
+@app.get("/{filename}.jpg")
+def serve_jpg(filename: str):
+    """Serve JPG images"""
+    img_file = f"{filename}.jpg"
+    if os.path.exists(img_file):
+        return FileResponse(img_file, media_type="image/jpeg")
+    raise HTTPException(status_code=404, detail="File not found")
+
+@app.get("/{filename}.png")
+def serve_png(filename: str):
+    """Serve PNG images"""
+    img_file = f"{filename}.png"
+    if os.path.exists(img_file):
+        return FileResponse(img_file, media_type="image/png")
+    raise HTTPException(status_code=404, detail="File not found")
+
+# Serve CSS files
+@app.get("/{filename}.css")
+def serve_css(filename: str):
+    """Serve CSS files"""
+    css_file = f"{filename}.css"
+    if os.path.exists(css_file):
+        return FileResponse(css_file, media_type="text/css")
     raise HTTPException(status_code=404, detail="File not found")
 
 @app.post("/api/clock", response_model=ClockRecordResponse)

@@ -179,9 +179,10 @@
         const apiKey = CONFIG.getApiKey();
         
         // Backend API URL - change this to your Render deployment URL
-        // For local development: 'http://localhost:8000'
-        // For production: 'https://your-app-name.onrender.com'
-        const BACKEND_API_URL = 'https://myaitools-nh8s.onrender.com/'; // Update this with your Render URL
+        // Backend API URL - automatically uses current domain (works for localhost and Render)
+        // For local development: uses 'http://localhost:8000'
+        // For production: automatically uses your Render URL
+        const BACKEND_API_URL = window.location.origin;
         
         // Model fallback list - try newer models first, fallback to older ones
         const MODEL_OPTIONS = [

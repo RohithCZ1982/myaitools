@@ -104,8 +104,8 @@
     </div>
     
     <script>
-        // Backend API URL - same as workerclock.html
-        const BACKEND_API_URL = 'http://localhost:8000'; // Update this with your Render URL
+        // Backend API URL - automatically uses current domain (works for localhost and Render)
+        const BACKEND_API_URL = window.location.origin;
         
         // Check admin authentication
         const isAuthenticated = sessionStorage.getItem('adminAuthenticated') === 'true';
