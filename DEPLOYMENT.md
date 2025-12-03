@@ -44,7 +44,7 @@
 3. Configure the service:
    - **Name:** `worker-clock-api` (or your preferred name)
    - **Environment:** `Python 3`
-   - **Build Command:** `pip install -r requirements.txt`
+   - **Build Command:** `pip install --prefer-binary -r requirements.txt`
    - **Start Command:** `uvicorn app:app --host 0.0.0.0 --port $PORT`
    - **Plan:** Free tier is fine for testing
 
