@@ -44,10 +44,7 @@
 3. Configure the service:
    - **Name:** `worker-clock-api` (or your preferred name)
    - **Environment:** `Python 3`
-   - **Build Command:** `mkdir -p /tmp/cargo && pip install --upgrade pip setuptools wheel && pip install --prefer-binary --no-cache-dir -r requirements.txt`
-   - **Environment Variables:**
-     - `CARGO_HOME=/tmp/cargo` (allows Rust/Cargo to use writable directory)
-     - `PYTHON_VERSION=3.11.0`
+   - **Build Command:** `pip install -r requirements.txt`
    - **Start Command:** `uvicorn app:app --host 0.0.0.0 --port $PORT`
    - **Plan:** Free tier is fine for testing
 
