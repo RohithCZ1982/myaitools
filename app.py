@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime
 import sqlite3
@@ -156,6 +158,10 @@ def init_db():
 # Initialize database on startup
 init_db()
 
+# Mount static files directory to serve HTML files
+# This allows accessing files like /index.html, /workerclock.html, etc.
+app.mount("/static", StaticFiles(directory="."), name="static")
+
 # Pydantic models for request/response
 class ClockRecord(BaseModel):
     worker_name: str
@@ -181,7 +187,25 @@ class ClockRecordResponse(BaseModel):
 
 @app.get("/")
 def read_root():
+    """Serve index.html at the root URL"""
+    try:
+        return FileResponse("index.html")
+    except FileNotFoundError:
+        return {"message": "Workers Clock In/Out API", "status": "running", "index.html": "not found"}
+
+@app.get("/api")
+def api_info():
+    """API information endpoint"""
     return {"message": "Workers Clock In/Out API", "status": "running"}
+
+# Serve HTML files directly
+@app.get("/{filename}.html")
+def serve_html(filename: str):
+    """Serve HTML files like /workerclock.html, /admin.html, etc."""
+    html_file = f"{filename}.html"
+    if os.path.exists(html_file):
+        return FileResponse(html_file)
+    raise HTTPException(status_code=404, detail="File not found")
 
 @app.post("/api/clock", response_model=ClockRecordResponse)
 def create_clock_record(record: ClockRecord):
