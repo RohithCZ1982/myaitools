@@ -178,6 +178,11 @@
         // Get API key from config
         const apiKey = CONFIG.getApiKey();
         
+        // Backend API URL - change this to your Render deployment URL
+        // For local development: 'http://localhost:8000'
+        // For production: 'https://your-app-name.onrender.com'
+        const BACKEND_API_URL = 'http://localhost:8000'; // Update this with your Render URL
+        
         // Model fallback list - try newer models first, fallback to older ones
         const MODEL_OPTIONS = [
             'gemini-2.0-flash-001',
@@ -187,6 +192,46 @@
         // Function to get API URL for a specific model
         function getGeminiApiUrl(modelName) {
             return `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        }
+        
+        /**
+         * Save clock record to backend API with encrypted image
+         */
+        async function saveClockRecord(action, location, faceData = null, imageData = null) {
+            try {
+                const record = {
+                    worker_name: workerName,
+                    action: action,
+                    timestamp: new Date().toISOString(),
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    accuracy: location.accuracy,
+                    face_data: faceData ? JSON.stringify(faceData) : null,
+                    image_data: imageData || null  // Base64 image data (will be encrypted on server)
+                };
+                
+                const response = await fetch(`${BACKEND_API_URL}/api/clock`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(record)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || 'Failed to save clock record');
+                }
+                
+                const savedRecord = await response.json();
+                console.log('Clock record saved with encrypted image:', savedRecord);
+                return savedRecord;
+            } catch (error) {
+                console.error('Error saving clock record:', error);
+                // Don't throw - allow the app to continue even if backend save fails
+                // You can show a warning message if needed
+                return null;
+            }
         }
         
         // Initialize
@@ -242,7 +287,7 @@
                     isCheckedIn = true;
                     workerFaceData = recognitionResult.faceData;
                     
-                    // Save state
+                    // Save state locally
                     saveState({
                         isCheckedIn: true,
                         workerName: workerName,
@@ -250,6 +295,9 @@
                         location: location,
                         faceData: workerFaceData
                     });
+                    
+                    // Save to backend API with encrypted image
+                    await saveClockRecord('check-in', location, workerFaceData, imageData);
                     
                     // Update UI
                     updateStatus('Checked In', true);
@@ -306,13 +354,16 @@
                     // Update state
                     isCheckedIn = false;
                     
-                    // Save state
+                    // Save state locally
                     saveState({
                         isCheckedIn: false,
                         workerName: workerName,
                         checkOutTime: new Date().toISOString(),
                         location: location
                     });
+                    
+                    // Save to backend API with encrypted image
+                    await saveClockRecord('check-out', location, recognitionResult.faceData, imageData);
                     
                     // Update UI
                     updateStatus('Checked Out', false);
@@ -556,15 +607,7 @@ Be accurate but account for changes in appearance due to work conditions.`;
                         body: JSON.stringify(requestBody)
                     });
                     
-                    // Get response text first to handle errors better
-                    const responseText = await response.text();
-                    
-                    try {
-                        data = JSON.parse(responseText);
-                    } catch (parseError) {
-                        console.error('Failed to parse JSON response:', responseText);
-                        throw new Error(`Invalid JSON response from API: ${parseError.message}`);
-                    }
+                    data = await response.json();
                     
                     // If model not found, try next model
                     if (!response.ok && (response.status === 404 || data.error?.message?.includes('not found'))) {
@@ -576,121 +619,49 @@ Be accurate but account for changes in appearance due to work conditions.`;
                         const errorMessage = data.error?.message || data.message || `HTTP ${response.status}: ${response.statusText}`;
                         throw new Error(errorMessage);
                     }
-                    
-                    // Validate data exists
-                    if (!data) {
-                        throw new Error('API returned empty response');
-                    }
-                    
                 } catch (fetchError) {
-                    console.error('API call error:', fetchError);
                     // If fetch fails and we have more models to try, attempt next model
                     if (modelIndex < MODEL_OPTIONS.length - 1) {
-                        console.log(`Error with ${currentModel}, trying next model...`);
+                        console.log(`Error with ${currentModel}, trying next model...`, fetchError);
                         return recognizeFace(imageData, location, action, modelIndex + 1);
                     }
                     throw fetchError;
                 }
                 
-                // Log response structure for debugging (without full data to avoid console spam)
-                console.log('API Response received. Keys:', Object.keys(data || {}));
-                if (data?.candidates) console.log('Has candidates array:', Array.isArray(data.candidates), 'Length:', data.candidates?.length);
-                if (data?.candidate) console.log('Has candidate:', Array.isArray(data.candidate) ? 'array' : typeof data.candidate);
-                
                 // Handle different possible response structures
                 let resultText = '';
                 
-                try {
-                    // Structure 1: Standard Gemini API response (most common)
-                    // data.candidates[0].content.parts[0].text
-                    if (data && data.candidates) {
-                        if (Array.isArray(data.candidates) && data.candidates.length > 0) {
-                            const candidate = data.candidates[0];
-                            if (candidate && candidate.content) {
-                                if (candidate.content.parts) {
-                                    const parts = Array.isArray(candidate.content.parts) 
-                                        ? candidate.content.parts 
-                                        : [candidate.content.parts];
-                                    if (parts.length > 0 && parts[0] && parts[0].text) {
-                                        resultText = parts[0].text;
-                                    }
-                                } else if (candidate.content.text) {
-                                    resultText = candidate.content.text;
-                                }
-                            }
-                        }
+                // Try standard structure first (most common)
+                if (data && data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
+                    const candidate = data.candidates[0];
+                    if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
+                        resultText = candidate.content.parts[0].text || '';
                     }
-                    // Structure 2: Alternative - candidate as object (not array)
-                    else if (data && data.candidate) {
-                        // Handle if candidate is an array
-                        if (Array.isArray(data.candidate) && data.candidate.length > 0) {
-                            const candidate = data.candidate[0];
-                            if (candidate && candidate.content) {
-                                if (candidate.content.parts) {
-                                    const parts = Array.isArray(candidate.content.parts) 
-                                        ? candidate.content.parts 
-                                        : [candidate.content.parts];
-                                    if (parts.length > 0 && parts[0] && parts[0].text) {
-                                        resultText = parts[0].text;
-                                    }
-                                } else if (candidate.content.text) {
-                                    resultText = candidate.content.text;
-                                }
-                            }
-                        }
-                        // Handle if candidate is an object
-                        else if (data.candidate.content) {
-                            if (data.candidate.content.parts) {
-                                const parts = Array.isArray(data.candidate.content.parts) 
-                                    ? data.candidate.content.parts 
-                                    : [data.candidate.content.parts];
-                                if (parts.length > 0 && parts[0] && parts[0].text) {
-                                    resultText = parts[0].text;
-                                }
-                            } else if (data.candidate.content.text) {
-                                resultText = data.candidate.content.text;
-                            }
-                        }
+                }
+                // Try alternative structure (some API versions)
+                else if (data && data.candidate && data.candidate.content && data.candidate.content.parts) {
+                    const parts = Array.isArray(data.candidate.content.parts) ? data.candidate.content.parts : [data.candidate.content.parts];
+                    if (parts.length > 0 && parts[0]) {
+                        resultText = parts[0].text || '';
                     }
-                    // Structure 3: Direct text response
-                    else if (data && data.text) {
-                        resultText = data.text;
-                    }
-                    // Structure 4: Check for errors in promptFeedback
-                    else if (data && data.promptFeedback) {
-                        const blockReason = data.promptFeedback.blockReason || 'Content was blocked by safety filters';
-                        throw new Error(blockReason);
-                    }
-                    // Structure 5: Check for error in response
-                    else if (data && data.error) {
-                        throw new Error(data.error.message || data.error || 'API returned an error');
-                    }
-                } catch (parseError) {
-                    console.error('Error parsing response:', parseError);
-                    console.error('Response data:', data);
-                    throw parseError;
+                }
+                // Try direct text response
+                else if (data && data.text) {
+                    resultText = data.text;
+                }
+                // Check for safety filter blocking
+                else if (data && data.promptFeedback) {
+                    throw new Error(data.promptFeedback.blockReason || 'Content was blocked by safety filters');
                 }
                 
                 if (!resultText) {
-                    console.error('Could not extract text from response');
-                    console.error('Response structure:', {
-                        hasCandidates: !!data?.candidates,
-                        hasCandidate: !!data?.candidate,
-                        hasText: !!data?.text,
-                        candidatesType: Array.isArray(data?.candidates) ? 'array' : typeof data?.candidates,
-                        candidateType: Array.isArray(data?.candidate) ? 'array' : typeof data?.candidate,
-                        fullData: data
-                    });
-                    
+                    console.error('Unexpected API response structure:', data);
                     // If we have more models to try, attempt next model
                     if (modelIndex < MODEL_OPTIONS.length - 1) {
-                        console.log('Trying next model due to parsing failure...');
                         return recognizeFace(imageData, location, action, modelIndex + 1);
                     }
-                    throw new Error('API returned response but could not extract text. Check console for response structure.');
+                    throw new Error('API returned unexpected response format. Please check console for details.');
                 }
-                
-                console.log('Extracted result text:', resultText);
                 
                 // Check if recognition was successful
                 const isRecognized = resultText.includes('RECOGNIZED:') || resultText.includes('VERIFIED:');
