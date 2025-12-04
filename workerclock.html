@@ -829,32 +829,33 @@ If no face is detected or face is too obscured, respond with: "NOT_RECOGNIZED: [
 
 Be lenient - construction workers often have obscured faces but should still be recognizable.`
                     : checkInImageData 
-                    ? `You are a facial recognition system verifying worker identity. You will receive TWO images:
+                    ? `You are a STRICT facial recognition security system. You will receive TWO images:
 1. First image: The worker ${workerName} checking IN (reference image)
 2. Second image: The person checking OUT (verification image)
 
-Compare these two images to verify if the person checking out is the same person who checked in.
+CRITICAL: You must be VERY STRICT. Only verify if you are HIGHLY CONFIDENT (90%+ certainty) that both images show the SAME person.
 
-The person may be wearing:
-- Hard hat or safety helmet
-- Sunglasses or safety glasses  
-- Face mask or respirator
-- Beard or facial hair
-- Dirt or sweat on face
-- Different lighting conditions
+Compare these permanent features between the two images CAREFULLY:
+- Face shape and structure (must match closely)
+- Eye position, spacing, and shape (must match)
+- Nose shape and size (must match)
+- Mouth and lip shape (must match)
+- Jawline and chin structure (must match)
+- Overall facial proportions (must match)
+- Any distinguishing marks, moles, or features (must match)
 
-Compare these permanent features between the two images:
-- Face shape and structure
-- Eye position and spacing
-- Nose shape
-- Mouth and lip shape
-- Jawline and chin
-- Any distinguishing marks
+IMPORTANT RULES:
+- If there are ANY significant differences in facial structure, respond with NOT_VERIFIED
+- If you cannot clearly see enough features to compare, respond with NOT_VERIFIED
+- If the faces look similar but you have ANY doubt, respond with NOT_VERIFIED
+- Only respond VERIFIED if you are ABSOLUTELY CERTAIN it's the same person
 
-If the person in the second image (check-out) appears to be the SAME person as in the first image (check-in), accounting for safety gear and conditions, respond with: "VERIFIED: ${workerName}"
-If the person in the second image appears to be a DIFFERENT person, respond with: "NOT_VERIFIED: [specific reason why they don't match]"
+The person may be wearing safety gear (helmet, glasses, mask), but the underlying facial features must still match clearly.
 
-Be accurate but account for changes in appearance due to work conditions, lighting, and safety equipment.`
+If the person in the second image (check-out) is DEFINITELY the SAME person as in the first image (check-in), respond with: "VERIFIED: ${workerName}"
+If the person appears to be DIFFERENT, or if you have ANY doubt, respond with: "NOT_VERIFIED: [specific reason - e.g., different face shape, different eye spacing, different nose, etc.]"
+
+Be STRICT and ACCURATE. Security is more important than convenience.`
                     : `You are a facial recognition system verifying worker identity. Compare this image to the worker who checked in earlier as ${workerName}.
 
 The person may be wearing:
@@ -1001,32 +1002,64 @@ Be accurate but account for changes in appearance due to work conditions.`;
                     throw new Error('API returned unexpected response format. Please check console for details.');
                 }
                 
-                // Check if recognition was successful
-                const isRecognized = resultText.includes('RECOGNIZED:') || resultText.includes('VERIFIED:');
+                // Check if recognition was successful - be strict about verification
+                const isRecognized = resultText.includes('RECOGNIZED:');
+                const isVerified = resultText.includes('VERIFIED:');
                 
-                if (isRecognized) {
-                    // Store face data for future comparison
-                    const faceData = {
-                        timestamp: new Date().toISOString(),
-                        description: resultText,
-                        location: location
-                    };
-                    
-                    return {
-                        success: true,
-                        faceData: faceData,
-                        message: resultText
-                    };
+                // For check-out, require explicit VERIFIED response
+                if (action === 'check-out') {
+                    if (isVerified) {
+                        // Store face data for future comparison
+                        const faceData = {
+                            timestamp: new Date().toISOString(),
+                            description: resultText,
+                            location: location
+                        };
+                        
+                        return {
+                            success: true,
+                            faceData: faceData,
+                            message: resultText
+                        };
+                    } else {
+                        // For check-out, if not explicitly verified, reject
+                        const reason = resultText.includes('NOT_VERIFIED:')
+                            ? resultText.split('NOT_VERIFIED:')[1]?.trim() || 'Face verification failed'
+                            : resultText.includes('NOT_RECOGNIZED:')
+                            ? resultText.split('NOT_RECOGNIZED:')[1]?.trim() || 'Face not recognized'
+                            : 'Face verification failed. The person checking out does not match the person who checked in.';
+                        
+                        return {
+                            success: false,
+                            error: reason
+                        };
+                    }
                 } else {
-                    // Check if there's a specific reason in the response
-                    const reason = resultText.includes('NOT_RECOGNIZED:') || resultText.includes('NOT_VERIFIED:')
-                        ? resultText.split(':')[1]?.trim() || 'Face not recognized'
-                        : 'Face not recognized. Please ensure your face is clearly visible.';
-                    
-                    return {
-                        success: false,
-                        error: reason
-                    };
+                    // For check-in, use RECOGNIZED
+                    if (isRecognized) {
+                        // Store face data for future comparison
+                        const faceData = {
+                            timestamp: new Date().toISOString(),
+                            description: resultText,
+                            location: location
+                        };
+                        
+                        return {
+                            success: true,
+                            faceData: faceData,
+                            message: resultText
+                        };
+                    } else {
+                        // Check if there's a specific reason in the response
+                        const reason = resultText.includes('NOT_RECOGNIZED:')
+                            ? resultText.split('NOT_RECOGNIZED:')[1]?.trim() || 'Face not recognized'
+                            : 'Face not recognized. Please ensure your face is clearly visible.';
+                        
+                        return {
+                            success: false,
+                            error: reason
+                        };
+                    }
                 }
                 
             } catch (error) {

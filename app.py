@@ -728,9 +728,10 @@ async def reverse_geocode_coords(latitude: float, longitude: float):
             if google_result:
                 return google_result
         
-        # If both fail, return error
+        # If both fail, return coordinates only (don't fail completely)
+        print(f"Geocoding failed: {e}")
         return {
-            "address": f"Geocoding error: {str(e)}",
+            "address": f"{latitude}, {longitude}",  # Just return coordinates if geocoding fails
             "coordinates": f"{latitude}, {longitude}",
             "postcode": None
         }
