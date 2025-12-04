@@ -794,249 +794,187 @@
         }
         
         /**
-         * Recognize face using Gemini API with model fallback
+         * Recognize face using Gemini API - REWRITTEN FROM SCRATCH
          */
         async function recognizeFace(imageData, location, action, modelIndex = 0, checkInImageData = null) {
             try {
-                // Extract base64 data (remove data:image/jpeg;base64, prefix if present)
+                // Extract base64 data
                 const base64Data = imageData.includes(',') 
                     ? imageData.split(',')[1] 
                     : imageData;
                 
-                // Create prompt for face recognition
-                // Optimized for construction/industrial workers with safety gear
-                const prompt = action === 'check-in' 
-                    ? `You are a facial recognition system for worker time tracking. Analyze this image of ${workerName} checking in. 
-
-IMPORTANT: The person may be wearing:
-- Hard hat or safety helmet
-- Sunglasses or safety glasses
-- Face mask or respirator
-- Beard or facial hair
-- Dirt or sweat on face
-- Working in low light conditions
-
-Focus on permanent facial features that remain visible:
-- Face shape and structure
-- Eye position and spacing (even if glasses are worn)
-- Nose shape
-- Mouth and lip shape
-- Jawline and chin
-- Any visible distinguishing marks
-
-If you can detect a human face with at least 2-3 identifiable features, respond with: "RECOGNIZED: ${workerName}"
-If no face is detected or face is too obscured, respond with: "NOT_RECOGNIZED: [specific reason]"
-
-Be lenient - construction workers often have obscured faces but should still be recognizable.`
-                    : checkInImageData 
-                    ? `You are an EXTREMELY STRICT facial recognition security system. You will receive TWO images:
-1. First image: The worker ${workerName} checking IN (reference image)
-2. Second image: The person checking OUT (verification image)
-
-CRITICAL SECURITY RULES - READ CAREFULLY:
-- You MUST be 95%+ CERTAIN that both images show the SAME HUMAN PERSON
-- If the images show DIFFERENT people, animals, objects, or anything non-human, you MUST respond with NOT_VERIFIED
-- If you have even 1% doubt, respond with NOT_VERIFIED
-- Only respond VERIFIED if you are ABSOLUTELY, COMPLETELY CERTAIN (95%+) it's the same human person
-
-STEP-BY-STEP VERIFICATION PROCESS:
-1. First, check if BOTH images contain a HUMAN FACE. If either image shows an animal, object, or non-human, respond: "NOT_VERIFIED: One or both images do not show a human face"
-
-2. If both show human faces, compare these features EXACTLY:
-   - Face shape and structure (must be IDENTICAL or very close)
-   - Eye position, spacing, size, and shape (must match precisely)
-   - Nose shape, size, and position (must match precisely)
-   - Mouth and lip shape and size (must match precisely)
-   - Jawline and chin structure (must match precisely)
-   - Overall facial proportions (must match precisely)
-   - Any distinguishing marks, moles, or unique features (must match)
-
-3. If ANY feature is significantly different, respond: "NOT_VERIFIED: [specific difference - e.g., different face shape, different eye spacing, different nose, completely different person, etc.]"
-
-4. If ALL features match closely AND you are 95%+ certain it's the same person, respond: "VERIFIED: ${workerName}"
-
-IMPORTANT:
-- Safety gear (helmet, glasses, mask) is acceptable, but facial features underneath must still match
-- Different lighting is acceptable, but facial structure must still match
-- If images show completely different people, animals, or objects, you MUST say NOT_VERIFIED
-
-RESPONSE FORMAT:
-- If same person (95%+ certain): "VERIFIED: ${workerName}"
-- If different person/animal/object or any doubt: "NOT_VERIFIED: [specific reason]"
-
-Be EXTREMELY STRICT. False positives are a security risk. When in doubt, always respond NOT_VERIFIED.`
-                    : `You are a facial recognition system verifying worker identity. Compare this image to the worker who checked in earlier as ${workerName}.
-
-The person may be wearing:
-- Hard hat or safety helmet
-- Sunglasses or safety glasses  
-- Face mask or respirator
-- Beard or facial hair
-- Dirt or sweat on face
-- Different lighting conditions
-
-Compare these permanent features:
-- Face shape and structure
-- Eye position and spacing
-- Nose shape
-- Mouth and lip shape
-- Jawline and chin
-- Any distinguishing marks
-
-If this appears to be the same person as ${workerName} (accounting for safety gear and conditions), respond with: "VERIFIED: ${workerName}"
-If this appears to be a different person, respond with: "NOT_VERIFIED: [specific reason]"
-
-Be accurate but account for changes in appearance due to work conditions.`;
+                // Get API key
+                if (!apiKey || apiKey.trim() === '') {
+                    throw new Error('API key is not configured');
+                }
                 
-                // Prepare request parts
-                const parts = [{ text: prompt }];
+                // Select model
+                if (modelIndex >= MODEL_OPTIONS.length) {
+                    throw new Error('All available models failed');
+                }
+                const currentModel = MODEL_OPTIONS[modelIndex];
+                const apiUrl = getGeminiApiUrl(currentModel);
                 
-                // For check-out with check-in image, add both images
-                if (action === 'check-out' && checkInImageData) {
-                    // Extract base64 from check-in image
+                // Build prompt based on action
+                let prompt = '';
+                let parts = [];
+                
+                if (action === 'check-in') {
+                    // CHECK-IN: Just recognize the face
+                    prompt = `Analyze this image. Does it show a clear human face?
+
+If YES and you can see facial features, respond EXACTLY: "RECOGNIZED: ${workerName}"
+If NO (no face, too blurry, or not a person), respond EXACTLY: "NOT_RECOGNIZED: [reason]"
+
+Be specific about why if not recognized.`;
+                    
+                    parts = [
+                        { text: prompt },
+                        {
+                            inline_data: {
+                                mime_type: "image/jpeg",
+                                data: base64Data
+                            }
+                        }
+                    ];
+                } else if (action === 'check-out' && checkInImageData) {
+                    // CHECK-OUT: Compare two images
                     const checkInBase64 = checkInImageData.includes(',') 
                         ? checkInImageData.split(',')[1] 
                         : checkInImageData;
                     
-                    // Add check-in image first (reference)
-                    parts.push({
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: checkInBase64
-                        }
-                    });
+                    prompt = `You are comparing TWO images to verify if they show the SAME person.
+
+IMAGE 1: Check-in photo (reference)
+IMAGE 2: Check-out photo (to verify)
+
+INSTRUCTIONS:
+1. First verify BOTH images show HUMAN FACES (not animals, objects, etc.)
+2. Compare facial features: face shape, eyes, nose, mouth, jawline
+3. Only if you are 95%+ CERTAIN they are the SAME person, respond: "VERIFIED: ${workerName}"
+4. If they are DIFFERENT people, or if you have ANY doubt, respond: "NOT_VERIFIED: [specific reason]"
+
+CRITICAL: Be very strict. Different people = NOT_VERIFIED. Animals/objects = NOT_VERIFIED. Any doubt = NOT_VERIFIED.
+
+Respond with ONLY one of these exact formats:
+- "VERIFIED: ${workerName}" (if same person, 95%+ certain)
+- "NOT_VERIFIED: [reason]" (if different person, animal, object, or any doubt)`;
                     
-                    // Add check-out image second (verification)
-                    parts.push({
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: base64Data
+                    parts = [
+                        { text: prompt },
+                        {
+                            inline_data: {
+                                mime_type: "image/jpeg",
+                                data: checkInBase64
+                            }
+                        },
+                        {
+                            inline_data: {
+                                mime_type: "image/jpeg",
+                                data: base64Data
+                            }
                         }
-                    });
+                    ];
                 } else {
-                    // For check-in or check-out without check-in image, add only current image
-                    parts.push({
-                        inline_data: {
-                            mime_type: "image/jpeg",
-                            data: base64Data
+                    // Fallback for check-out without check-in image
+                    prompt = `Analyze this check-out image. Without a check-in reference, I cannot verify identity.
+
+Respond: "NOT_VERIFIED: No check-in image available for comparison"`;
+                    
+                    parts = [
+                        { text: prompt },
+                        {
+                            inline_data: {
+                                mime_type: "image/jpeg",
+                                data: base64Data
+                            }
                         }
-                    });
+                    ];
                 }
                 
-                // Prepare request - use base64 data directly (API expects base64 string)
+                // Make API request
                 const requestBody = {
-                    contents: [{
-                        parts: parts
-                    }],
+                    contents: [{ parts: parts }],
                     generationConfig: {
                         temperature: 0.1,
-                        maxOutputTokens: 100
+                        maxOutputTokens: 150
                     }
                 };
                 
-                // Try models in order, fallback to next if current fails
-                if (modelIndex >= MODEL_OPTIONS.length) {
-                    throw new Error('All available models failed. Please check your API key and model availability.');
-                }
+                console.log('Sending face recognition request:', {
+                    action: action,
+                    hasCheckInImage: !!checkInImageData,
+                    model: currentModel
+                });
                 
-                const currentModel = MODEL_OPTIONS[modelIndex];
-                const apiUrl = getGeminiApiUrl(currentModel);
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
                 
-                // Call Gemini API
-                let response;
-                let data;
+                const data = await response.json();
                 
-                try {
-                    response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
-                    
-                    data = await response.json();
-                    
-                    // If model not found, try next model
-                    if (!response.ok && (response.status === 404 || data.error?.message?.includes('not found'))) {
-                        console.log(`Model ${currentModel} not available, trying next model...`);
-                        return recognizeFace(imageData, location, action, modelIndex + 1);
-                    }
-                    
-                    if (!response.ok) {
-                        const errorMessage = data.error?.message || data.message || `HTTP ${response.status}: ${response.statusText}`;
-                        throw new Error(errorMessage);
-                    }
-                } catch (fetchError) {
-                    // If fetch fails and we have more models to try, attempt next model
-                    if (modelIndex < MODEL_OPTIONS.length - 1) {
-                        console.log(`Error with ${currentModel}, trying next model...`, fetchError);
+                // Handle errors
+                if (!response.ok) {
+                    if (response.status === 404 && modelIndex < MODEL_OPTIONS.length - 1) {
+                        console.log(`Model ${currentModel} not available, trying next...`);
                         return recognizeFace(imageData, location, action, modelIndex + 1, checkInImageData);
                     }
-                    throw fetchError;
+                    throw new Error(data.error?.message || `API error: ${response.status}`);
                 }
                 
-                // Handle different possible response structures
+                // Extract response text
                 let resultText = '';
-                
-                // Try standard structure first (most common)
-                if (data && data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
-                    const candidate = data.candidates[0];
-                    if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
-                        resultText = candidate.content.parts[0].text || '';
-                    }
-                }
-                // Try alternative structure (some API versions)
-                else if (data && data.candidate && data.candidate.content && data.candidate.content.parts) {
-                    const parts = Array.isArray(data.candidate.content.parts) ? data.candidate.content.parts : [data.candidate.content.parts];
-                    if (parts.length > 0 && parts[0]) {
-                        resultText = parts[0].text || '';
-                    }
-                }
-                // Try direct text response
-                else if (data && data.text) {
-                    resultText = data.text;
-                }
-                // Check for safety filter blocking
-                else if (data && data.promptFeedback) {
-                    throw new Error(data.promptFeedback.blockReason || 'Content was blocked by safety filters');
-                }
-                
-                if (!resultText) {
-                    console.error('Unexpected API response structure:', data);
-                    // If we have more models to try, attempt next model
+                if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    resultText = data.candidates[0].content.parts[0].text.trim();
+                } else if (data?.candidate?.content?.parts?.[0]?.text) {
+                    resultText = data.candidate.content.parts[0].text.trim();
+                } else if (data?.text) {
+                    resultText = data.text.trim();
+                } else {
+                    console.error('Unexpected response format:', data);
                     if (modelIndex < MODEL_OPTIONS.length - 1) {
                         return recognizeFace(imageData, location, action, modelIndex + 1, checkInImageData);
                     }
-                    throw new Error('API returned unexpected response format. Please check console for details.');
+                    throw new Error('Invalid API response format');
                 }
                 
-                // Check if recognition was successful - be strict about verification
-                const isRecognized = resultText.includes('RECOGNIZED:');
-                const isVerified = resultText.includes('VERIFIED:');
+                console.log('Face recognition response:', resultText);
                 
-                // For check-out, require explicit VERIFIED response
+                // Parse result
+                const upperText = resultText.toUpperCase();
+                const isVerified = upperText.includes('VERIFIED:') && !upperText.includes('NOT_VERIFIED');
+                const isRecognized = upperText.includes('RECOGNIZED:') && !upperText.includes('NOT_RECOGNIZED');
+                const isNotVerified = upperText.includes('NOT_VERIFIED') || 
+                                     upperText.includes('NOT_RECOGNIZED') ||
+                                     upperText.includes('DIFFERENT') ||
+                                     upperText.includes('ANIMAL') ||
+                                     upperText.includes('NOT A HUMAN');
+                
+                // Process based on action
                 if (action === 'check-out') {
-                    if (isVerified) {
-                        // Store face data for future comparison
-                        const faceData = {
-                            timestamp: new Date().toISOString(),
-                            description: resultText,
-                            location: location
-                        };
-                        
+                    // For check-out, require explicit VERIFIED
+                    if (isVerified && !isNotVerified) {
                         return {
                             success: true,
-                            faceData: faceData,
+                            faceData: {
+                                timestamp: new Date().toISOString(),
+                                description: resultText,
+                                location: location
+                            },
                             message: resultText
                         };
                     } else {
-                        // For check-out, if not explicitly verified, reject
-                        const reason = resultText.includes('NOT_VERIFIED:')
-                            ? resultText.split('NOT_VERIFIED:')[1]?.trim() || 'Face verification failed'
-                            : resultText.includes('NOT_RECOGNIZED:')
-                            ? resultText.split('NOT_RECOGNIZED:')[1]?.trim() || 'Face not recognized'
-                            : 'Face verification failed. The person checking out does not match the person who checked in.';
+                        // Extract reason
+                        let reason = 'Face verification failed';
+                        if (resultText.includes('NOT_VERIFIED:')) {
+                            reason = resultText.split('NOT_VERIFIED:')[1]?.trim() || 'Not verified';
+                        } else if (resultText.includes('NOT_RECOGNIZED:')) {
+                            reason = resultText.split('NOT_RECOGNIZED:')[1]?.trim() || 'Not recognized';
+                        } else if (isNotVerified) {
+                            reason = 'Images show different subjects or verification failed';
+                        }
                         
                         return {
                             success: false,
@@ -1045,21 +983,17 @@ Be accurate but account for changes in appearance due to work conditions.`;
                     }
                 } else {
                     // For check-in, use RECOGNIZED
-                    if (isRecognized) {
-                        // Store face data for future comparison
-                        const faceData = {
-                            timestamp: new Date().toISOString(),
-                            description: resultText,
-                            location: location
-                        };
-                        
+                    if (isRecognized && !isNotVerified) {
                         return {
                             success: true,
-                            faceData: faceData,
+                            faceData: {
+                                timestamp: new Date().toISOString(),
+                                description: resultText,
+                                location: location
+                            },
                             message: resultText
                         };
                     } else {
-                        // Check if there's a specific reason in the response
                         const reason = resultText.includes('NOT_RECOGNIZED:')
                             ? resultText.split('NOT_RECOGNIZED:')[1]?.trim() || 'Face not recognized'
                             : 'Face not recognized. Please ensure your face is clearly visible.';
@@ -1073,14 +1007,16 @@ Be accurate but account for changes in appearance due to work conditions.`;
                 
             } catch (error) {
                 console.error('Face recognition error:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    stack: error.stack
-                });
+                
+                // Try next model if available
+                if (modelIndex < MODEL_OPTIONS.length - 1) {
+                    console.log('Retrying with next model...');
+                    return recognizeFace(imageData, location, action, modelIndex + 1, checkInImageData);
+                }
                 
                 return {
                     success: false,
-                    error: error.message || 'Face recognition service unavailable. Please try again.'
+                    error: error.message || 'Face recognition failed. Please try again.'
                 };
             }
         }

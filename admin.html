@@ -786,42 +786,22 @@
                 const modelName = 'gemini-2.0-flash-001'; // Use first model
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
                 
-                const prompt = `You are an EXTREMELY STRICT facial recognition security system. You will receive TWO images:
-1. First image: The worker ${workerName} checking IN (reference image)
-2. Second image: The person checking OUT (verification image)
+                const prompt = `You are comparing TWO images to verify if they show the SAME person.
 
-CRITICAL SECURITY RULES - READ CAREFULLY:
-- You MUST be 95%+ CERTAIN that both images show the SAME HUMAN PERSON
-- If the images show DIFFERENT people, animals, objects, or anything non-human, you MUST respond with NOT_VERIFIED
-- If you have even 1% doubt, respond with NOT_VERIFIED
-- Only respond VERIFIED if you are ABSOLUTELY, COMPLETELY CERTAIN (95%+) it's the same human person
+IMAGE 1: Check-in photo (reference)
+IMAGE 2: Check-out photo (to verify)
 
-STEP-BY-STEP VERIFICATION PROCESS:
-1. First, check if BOTH images contain a HUMAN FACE. If either image shows an animal, object, or non-human, respond: "NOT_VERIFIED: One or both images do not show a human face"
+INSTRUCTIONS:
+1. First verify BOTH images show HUMAN FACES (not animals, objects, etc.)
+2. Compare facial features: face shape, eyes, nose, mouth, jawline
+3. Only if you are 95%+ CERTAIN they are the SAME person, respond: "VERIFIED: ${workerName}"
+4. If they are DIFFERENT people, or if you have ANY doubt, respond: "NOT_VERIFIED: [specific reason]"
 
-2. If both show human faces, compare these features EXACTLY:
-   - Face shape and structure (must be IDENTICAL or very close)
-   - Eye position, spacing, size, and shape (must match precisely)
-   - Nose shape, size, and position (must match precisely)
-   - Mouth and lip shape and size (must match precisely)
-   - Jawline and chin structure (must match precisely)
-   - Overall facial proportions (must match precisely)
-   - Any distinguishing marks, moles, or unique features (must match)
+CRITICAL: Be very strict. Different people = NOT_VERIFIED. Animals/objects = NOT_VERIFIED. Any doubt = NOT_VERIFIED.
 
-3. If ANY feature is significantly different, respond: "NOT_VERIFIED: [specific difference - e.g., different face shape, different eye spacing, different nose, completely different person, etc.]"
-
-4. If ALL features match closely AND you are 95%+ certain it's the same person, respond: "VERIFIED: ${workerName}"
-
-IMPORTANT:
-- Safety gear (helmet, glasses, mask) is acceptable, but facial features underneath must still match
-- Different lighting is acceptable, but facial structure must still match
-- If images show completely different people, animals, or objects, you MUST say NOT_VERIFIED
-
-RESPONSE FORMAT:
-- If same person (95%+ certain): "VERIFIED: ${workerName}"
-- If different person/animal/object or any doubt: "NOT_VERIFIED: [specific reason]"
-
-Be EXTREMELY STRICT. False positives are a security risk. When in doubt, always respond NOT_VERIFIED.`;
+Respond with ONLY one of these exact formats:
+- "VERIFIED: ${workerName}" (if same person, 95%+ certain)
+- "NOT_VERIFIED: [reason]" (if different person, animal, object, or any doubt)`;
                 
                 const requestBody = {
                     contents: [{
