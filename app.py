@@ -557,8 +557,79 @@ def get_decrypted_image(record_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+async def reverse_geocode_with_google(latitude: float, longitude: float, api_key: str):
+    """Convert GPS coordinates to address using Google Geocoding API (more accurate)"""
+    try:
+        url = "https://maps.googleapis.com/maps/api/geocode/json"
+        params = {
+            "latlng": f"{latitude},{longitude}",
+            "key": api_key,
+            "result_type": "street_address|postal_code"  # Prioritize street addresses and postal codes
+        }
+        
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        
+        if data.get("status") != "OK" or not data.get("results"):
+            return None
+        
+        # Get the first result (most specific)
+        result = data["results"][0]
+        address_components = result.get("address_components", [])
+        
+        # Extract address parts
+        address_parts = {}
+        postcode = None
+        
+        for component in address_components:
+            types = component.get("types", [])
+            long_name = component.get("long_name", "")
+            
+            if "street_number" in types:
+                address_parts["house_number"] = long_name
+            elif "route" in types:
+                address_parts["road"] = long_name
+            elif "locality" in types or "sublocality" in types:
+                address_parts["city"] = long_name
+            elif "administrative_area_level_1" in types:
+                address_parts["state"] = long_name
+            elif "postal_code" in types:
+                postcode = long_name
+            elif "country" in types:
+                address_parts["country"] = long_name
+        
+        # Build formatted address
+        address_components_list = []
+        if address_parts.get("house_number"):
+            address_components_list.append(address_parts["house_number"])
+        if address_parts.get("road"):
+            address_components_list.append(address_parts["road"])
+        if address_parts.get("city"):
+            address_components_list.append(address_parts["city"])
+        if address_parts.get("state"):
+            address_components_list.append(address_parts["state"])
+        if postcode:
+            address_components_list.append(postcode)
+        if address_parts.get("country"):
+            address_components_list.append(address_parts["country"])
+        
+        formatted_address = ", ".join(address_components_list) if address_components_list else result.get("formatted_address", "")
+        
+        return {
+            "address": formatted_address,
+            "coordinates": f"{latitude}, {longitude}",
+            "raw": result.get("formatted_address", ""),
+            "postcode": postcode
+        }
+    except Exception as e:
+        print(f"Google Geocoding error: {e}")
+        return None
+
 async def reverse_geocode_coords(latitude: float, longitude: float):
-    """Convert GPS coordinates to physical address using OpenStreetMap Nominatim (internal function)"""
+    """Convert GPS coordinates to physical address using OpenStreetMap Nominatim (with Google fallback)"""
+    # Try OpenStreetMap first (free)
     try:
         # Use OpenStreetMap Nominatim API (free, no API key required)
         url = "https://nominatim.openstreetmap.org/reverse"
@@ -566,7 +637,9 @@ async def reverse_geocode_coords(latitude: float, longitude: float):
             "lat": latitude,
             "lon": longitude,
             "format": "json",
-            "addressdetails": 1
+            "addressdetails": 1,
+            "zoom": 18,  # Higher zoom for more detailed address
+            "namedetails": 1  # Include named details for better accuracy
         }
         headers = {
             "User-Agent": "WorkersClockApp/1.0"  # Required by Nominatim usage policy
@@ -578,10 +651,7 @@ async def reverse_geocode_coords(latitude: float, longitude: float):
             data = response.json()
         
         if "error" in data:
-            return {
-                "address": "Address not found",
-                "coordinates": f"{latitude}, {longitude}"
-            }
+            raise Exception("OpenStreetMap returned error")
         
         # Extract address components
         address_parts = data.get("address", {})
@@ -598,8 +668,18 @@ async def reverse_geocode_coords(latitude: float, longitude: float):
             address_components.append(address_parts.get("city") or address_parts.get("town") or address_parts.get("village"))
         if address_parts.get("state"):
             address_components.append(address_parts["state"])
-        if address_parts.get("postcode"):
-            address_components.append(address_parts["postcode"])
+        
+        # Try multiple postcode field names (different regions use different names)
+        postcode = (
+            address_parts.get("postcode") or 
+            address_parts.get("postal_code") or 
+            address_parts.get("postalcode") or
+            address_parts.get("zip") or
+            address_parts.get("zipcode")
+        )
+        if postcode:
+            address_components.append(postcode)
+        
         if address_parts.get("country"):
             address_components.append(address_parts["country"])
         
@@ -609,22 +689,50 @@ async def reverse_geocode_coords(latitude: float, longitude: float):
         else:
             formatted_address = data.get("display_name", f"{latitude}, {longitude}")
         
+        # If postcode is missing or seems wrong, try Google as fallback
+        google_api_key = os.getenv("GOOGLE_GEOCODING_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if (not postcode or len(str(postcode)) < 4) and google_api_key:
+            # Try Google Geocoding for better postcode accuracy
+            google_result = await reverse_geocode_with_google(latitude, longitude, google_api_key)
+            if google_result and google_result.get("postcode"):
+                # Use Google's postcode if it's available
+                postcode = google_result["postcode"]
+                # Update address with correct postcode
+                if postcode not in formatted_address:
+                    # Replace old postcode or add new one
+                    import re
+                    formatted_address = re.sub(r'\b\d{4,6}\b', postcode, formatted_address)
+                    if postcode not in formatted_address:
+                        # Insert postcode before country
+                        parts = formatted_address.split(", ")
+                        if address_parts.get("country") and address_parts["country"] in parts:
+                            idx = parts.index(address_parts["country"])
+                            parts.insert(idx, postcode)
+                        else:
+                            parts.append(postcode)
+                        formatted_address = ", ".join(parts)
+        
+        # Also return postcode separately for verification
         return {
             "address": formatted_address,
             "coordinates": f"{latitude}, {longitude}",
-            "raw": data.get("display_name", "")
+            "raw": data.get("display_name", ""),
+            "postcode": postcode  # Return postcode separately
         }
         
-    except httpx.TimeoutException:
+    except (httpx.TimeoutException, Exception) as e:
+        # Fallback to Google Geocoding if OpenStreetMap fails
+        google_api_key = os.getenv("GOOGLE_GEOCODING_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if google_api_key:
+            google_result = await reverse_geocode_with_google(latitude, longitude, google_api_key)
+            if google_result:
+                return google_result
+        
+        # If both fail, return error
         return {
-            "address": "Geocoding timeout",
-            "coordinates": f"{latitude}, {longitude}"
-        }
-    except Exception as e:
-        # Return coordinates if geocoding fails
-        return {
-            "address": f"Error: {str(e)}",
-            "coordinates": f"{latitude}, {longitude}"
+            "address": f"Geocoding error: {str(e)}",
+            "coordinates": f"{latitude}, {longitude}",
+            "postcode": None
         }
 
 class SQLQueryRequest(BaseModel):
