@@ -829,33 +829,42 @@ If no face is detected or face is too obscured, respond with: "NOT_RECOGNIZED: [
 
 Be lenient - construction workers often have obscured faces but should still be recognizable.`
                     : checkInImageData 
-                    ? `You are a STRICT facial recognition security system. You will receive TWO images:
+                    ? `You are an EXTREMELY STRICT facial recognition security system. You will receive TWO images:
 1. First image: The worker ${workerName} checking IN (reference image)
 2. Second image: The person checking OUT (verification image)
 
-CRITICAL: You must be VERY STRICT. Only verify if you are HIGHLY CONFIDENT (90%+ certainty) that both images show the SAME person.
+CRITICAL SECURITY RULES - READ CAREFULLY:
+- You MUST be 95%+ CERTAIN that both images show the SAME HUMAN PERSON
+- If the images show DIFFERENT people, animals, objects, or anything non-human, you MUST respond with NOT_VERIFIED
+- If you have even 1% doubt, respond with NOT_VERIFIED
+- Only respond VERIFIED if you are ABSOLUTELY, COMPLETELY CERTAIN (95%+) it's the same human person
 
-Compare these permanent features between the two images CAREFULLY:
-- Face shape and structure (must match closely)
-- Eye position, spacing, and shape (must match)
-- Nose shape and size (must match)
-- Mouth and lip shape (must match)
-- Jawline and chin structure (must match)
-- Overall facial proportions (must match)
-- Any distinguishing marks, moles, or features (must match)
+STEP-BY-STEP VERIFICATION PROCESS:
+1. First, check if BOTH images contain a HUMAN FACE. If either image shows an animal, object, or non-human, respond: "NOT_VERIFIED: One or both images do not show a human face"
 
-IMPORTANT RULES:
-- If there are ANY significant differences in facial structure, respond with NOT_VERIFIED
-- If you cannot clearly see enough features to compare, respond with NOT_VERIFIED
-- If the faces look similar but you have ANY doubt, respond with NOT_VERIFIED
-- Only respond VERIFIED if you are ABSOLUTELY CERTAIN it's the same person
+2. If both show human faces, compare these features EXACTLY:
+   - Face shape and structure (must be IDENTICAL or very close)
+   - Eye position, spacing, size, and shape (must match precisely)
+   - Nose shape, size, and position (must match precisely)
+   - Mouth and lip shape and size (must match precisely)
+   - Jawline and chin structure (must match precisely)
+   - Overall facial proportions (must match precisely)
+   - Any distinguishing marks, moles, or unique features (must match)
 
-The person may be wearing safety gear (helmet, glasses, mask), but the underlying facial features must still match clearly.
+3. If ANY feature is significantly different, respond: "NOT_VERIFIED: [specific difference - e.g., different face shape, different eye spacing, different nose, completely different person, etc.]"
 
-If the person in the second image (check-out) is DEFINITELY the SAME person as in the first image (check-in), respond with: "VERIFIED: ${workerName}"
-If the person appears to be DIFFERENT, or if you have ANY doubt, respond with: "NOT_VERIFIED: [specific reason - e.g., different face shape, different eye spacing, different nose, etc.]"
+4. If ALL features match closely AND you are 95%+ certain it's the same person, respond: "VERIFIED: ${workerName}"
 
-Be STRICT and ACCURATE. Security is more important than convenience.`
+IMPORTANT:
+- Safety gear (helmet, glasses, mask) is acceptable, but facial features underneath must still match
+- Different lighting is acceptable, but facial structure must still match
+- If images show completely different people, animals, or objects, you MUST say NOT_VERIFIED
+
+RESPONSE FORMAT:
+- If same person (95%+ certain): "VERIFIED: ${workerName}"
+- If different person/animal/object or any doubt: "NOT_VERIFIED: [specific reason]"
+
+Be EXTREMELY STRICT. False positives are a security risk. When in doubt, always respond NOT_VERIFIED.`
                     : `You are a facial recognition system verifying worker identity. Compare this image to the worker who checked in earlier as ${workerName}.
 
 The person may be wearing:

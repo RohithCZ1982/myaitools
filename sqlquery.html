@@ -626,33 +626,42 @@
                 const modelName = 'gemini-2.0-flash-001';
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
                 
-                const prompt = `You are a STRICT facial recognition security system. You will receive TWO images:
+                const prompt = `You are an EXTREMELY STRICT facial recognition security system. You will receive TWO images:
 1. First image: Reference image (Image 1)
 2. Second image: Verification image (Image 2)
 
-CRITICAL: You must be VERY STRICT. Only verify if you are HIGHLY CONFIDENT (90%+ certainty) that both images show the SAME person.
+CRITICAL SECURITY RULES - READ CAREFULLY:
+- You MUST be 95%+ CERTAIN that both images show the SAME HUMAN PERSON
+- If the images show DIFFERENT people, animals, objects, or anything non-human, you MUST respond with NOT_VERIFIED
+- If you have even 1% doubt, respond with NOT_VERIFIED
+- Only respond VERIFIED if you are ABSOLUTELY, COMPLETELY CERTAIN (95%+) it's the same human person
 
-Compare these permanent features between the two images CAREFULLY:
-- Face shape and structure (must match closely)
-- Eye position, spacing, and shape (must match)
-- Nose shape and size (must match)
-- Mouth and lip shape (must match)
-- Jawline and chin structure (must match)
-- Overall facial proportions (must match)
-- Any distinguishing marks, moles, or features (must match)
+STEP-BY-STEP VERIFICATION PROCESS:
+1. First, check if BOTH images contain a HUMAN FACE. If either image shows an animal, object, or non-human, respond: "NOT_VERIFIED: One or both images do not show a human face"
 
-IMPORTANT RULES:
-- If there are ANY significant differences in facial structure, respond with NOT_VERIFIED
-- If you cannot clearly see enough features to compare, respond with NOT_VERIFIED
-- If the faces look similar but you have ANY doubt, respond with NOT_VERIFIED
-- Only respond VERIFIED if you are ABSOLUTELY CERTAIN it's the same person
+2. If both show human faces, compare these features EXACTLY:
+   - Face shape and structure (must be IDENTICAL or very close)
+   - Eye position, spacing, size, and shape (must match precisely)
+   - Nose shape, size, and position (must match precisely)
+   - Mouth and lip shape and size (must match precisely)
+   - Jawline and chin structure (must match precisely)
+   - Overall facial proportions (must match precisely)
+   - Any distinguishing marks, moles, or unique features (must match)
 
-The person may be wearing safety gear (helmet, glasses, mask), but the underlying facial features must still match clearly.
+3. If ANY feature is significantly different, respond: "NOT_VERIFIED: [specific difference - e.g., different face shape, different eye spacing, different nose, etc.]"
 
-If the person in the second image is DEFINITELY the SAME person as in the first image, respond with: "VERIFIED: Same person"
-If the person appears to be DIFFERENT, or if you have ANY doubt, respond with: "NOT_VERIFIED: [specific reason - e.g., different face shape, different eye spacing, different nose, etc.]"
+4. If ALL features match closely AND you are 95%+ certain, respond: "VERIFIED: Same person"
 
-Be STRICT and ACCURATE. Security is more important than convenience.`;
+IMPORTANT:
+- Safety gear (helmet, glasses, mask) is acceptable, but facial features underneath must still match
+- Different lighting is acceptable, but facial structure must still match
+- If images show completely different people, animals, or objects, you MUST say NOT_VERIFIED
+
+RESPONSE FORMAT:
+- If same person (95%+ certain): "VERIFIED: Same person"
+- If different person/animal/object or any doubt: "NOT_VERIFIED: [specific reason]"
+
+Be EXTREMELY STRICT. False positives are a security risk. When in doubt, always respond NOT_VERIFIED.`;
                 
                 const requestBody = {
                     contents: [{
@@ -702,28 +711,68 @@ Be STRICT and ACCURATE. Security is more important than convenience.`;
                     }
                 }
                 
-                // Display result
-                const isVerified = resultText.includes('VERIFIED:');
-                const isNotVerified = resultText.includes('NOT_VERIFIED:');
+                // Display result - be EXTREMELY strict about verification
+                // Check for explicit NOT_VERIFIED first (takes priority)
+                const isNotVerified = resultText.includes('NOT_VERIFIED:') || 
+                                     resultText.toLowerCase().includes('not verified') ||
+                                     resultText.toLowerCase().includes('different') ||
+                                     resultText.toLowerCase().includes('not the same');
                 
-                resultDiv.classList.remove('hidden');
+                // Only verify if explicitly says VERIFIED and doesn't have any negative indicators
+                const hasVerifiedKeyword = resultText.includes('VERIFIED:') || resultText.toLowerCase().includes('verified');
+                const hasNegativeIndicators = resultText.toLowerCase().includes('different') ||
+                                             resultText.toLowerCase().includes('not the same') ||
+                                             resultText.toLowerCase().includes('animal') ||
+                                             resultText.toLowerCase().includes('not a human') ||
+                                             resultText.toLowerCase().includes('not a person');
                 
-                if (isVerified) {
-                    resultContent.className = 'p-4 rounded-xl border border-green-200 bg-green-50';
+                const isVerified = hasVerifiedKeyword && !isNotVerified && !hasNegativeIndicators;
+                
+                // Additional validation: if result is unclear or doesn't explicitly say VERIFIED, treat as NOT_VERIFIED
+                if (!isVerified && !isNotVerified) {
+                    // If response doesn't clearly state verification status, treat as NOT_VERIFIED
+                    resultDiv.classList.remove('hidden');
+                    resultContent.className = 'p-4 rounded-xl border border-red-200 bg-red-50';
                     resultContent.innerHTML = `
                         <div class="flex items-start gap-3">
                             <div class="flex-shrink-0">
-                                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                 </svg>
                             </div>
                             <div class="flex-1">
-                                <h3 class="text-lg font-semibold text-green-800 mb-2">✓ Verified - Same Person</h3>
-                                <p class="text-green-700 text-sm">${resultText}</p>
+                                <h3 class="text-lg font-semibold text-red-800 mb-2">✗ Not Verified - Unclear Response</h3>
+                                <p class="text-red-700 text-sm">The verification response was unclear. For security, this is treated as NOT VERIFIED.</p>
+                                <p class="text-red-600 text-xs mt-2">Response: ${resultText}</p>
                             </div>
                         </div>
                     `;
-                } else if (isNotVerified) {
+                    return;
+                }
+                
+                resultDiv.classList.remove('hidden');
+                
+                // Prioritize NOT_VERIFIED over VERIFIED if both appear or negative indicators exist
+                if (isNotVerified || hasNegativeIndicators) {
+                    const reason = resultText.split('NOT_VERIFIED:')[1]?.trim() || 
+                                  resultText.split('not verified')[1]?.trim() || 
+                                  'Not verified - images show different subjects';
+                    resultContent.className = 'p-4 rounded-xl border border-red-200 bg-red-50';
+                    resultContent.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0">
+                                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-red-800 mb-2">✗ Not Verified - Different Person/Subject</h3>
+                                <p class="text-red-700 text-sm">${reason}</p>
+                                <p class="text-red-600 text-xs mt-2">Full response: ${resultText}</p>
+                            </div>
+                        </div>
+                    `;
+                } else if (isVerified) {
                     const reason = resultText.split('NOT_VERIFIED:')[1]?.trim() || 'Not verified';
                     resultContent.className = 'p-4 rounded-xl border border-red-200 bg-red-50';
                     resultContent.innerHTML = `
