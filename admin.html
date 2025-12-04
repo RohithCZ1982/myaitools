@@ -150,19 +150,30 @@
                 <p id="error-text"></p>
             </div>
             
-            <!-- Delete Action Bar -->
-            <div id="delete-action-bar" class="hidden mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <span id="selected-count" class="font-semibold text-red-800">0</span>
-                    <span class="text-red-700">record(s) selected</span>
+            <!-- Action Bar for Selected Rows -->
+            <div id="action-bar" class="hidden mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <span id="selected-count" class="font-semibold text-blue-800">0</span>
+                        <span class="text-blue-700">record(s) selected</span>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="loadSelectedImages()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            Load Images
+                        </button>
+                        <button onclick="deleteSelectedRecords()" 
+                                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Delete Selected
+                        </button>
+                    </div>
                 </div>
-                <button onclick="deleteSelectedRecords()" 
-                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                    </svg>
-                    Delete Selected
-                </button>
             </div>
             
             <!-- Records Table -->
@@ -365,16 +376,22 @@
                         <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">${formatTime(checkIn)}</td>
                         <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">${formatTime(checkOut)}</td>
                         <td class="px-4 py-3">
-                            <div id="checkin-image-${checkIn ? checkIn.id : 'none'}" class="w-20 h-20 bg-gray-100 rounded border border-gray-200 overflow-hidden flex items-center justify-center mx-auto">
+                            <div id="checkin-image-${checkIn ? checkIn.id : 'none'}" 
+                                 class="w-20 h-20 bg-gray-100 rounded border border-gray-200 overflow-hidden flex items-center justify-center mx-auto"
+                                 data-record-id="${checkIn ? checkIn.id : ''}"
+                                 data-has-image="${checkIn && checkIn.encrypted_image ? 'true' : 'false'}">
                                 ${checkIn && checkIn.encrypted_image ? 
-                                    '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>' : 
+                                    '<span class="text-xs text-gray-400">Click "Load Images"</span>' : 
                                     '<span class="text-xs text-gray-400">-</span>'}
                             </div>
                         </td>
                         <td class="px-4 py-3">
-                            <div id="checkout-image-${checkOut ? checkOut.id : 'none'}" class="w-20 h-20 bg-gray-100 rounded border border-gray-200 overflow-hidden flex items-center justify-center mx-auto">
+                            <div id="checkout-image-${checkOut ? checkOut.id : 'none'}" 
+                                 class="w-20 h-20 bg-gray-100 rounded border border-gray-200 overflow-hidden flex items-center justify-center mx-auto"
+                                 data-record-id="${checkOut ? checkOut.id : ''}"
+                                 data-has-image="${checkOut && checkOut.encrypted_image ? 'true' : 'false'}">
                                 ${checkOut && checkOut.encrypted_image ? 
-                                    '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>' : 
+                                    '<span class="text-xs text-gray-400">Click "Load Images"</span>' : 
                                     '<span class="text-xs text-gray-400">-</span>'}
                             </div>
                         </td>
@@ -384,13 +401,7 @@
                     
                     tableBody.appendChild(row);
                     
-                    // Load images asynchronously
-                    if (checkIn && checkIn.encrypted_image) {
-                        loadImage(checkIn.id, `checkin-image-${checkIn.id}`);
-                    }
-                    if (checkOut && checkOut.encrypted_image) {
-                        loadImage(checkOut.id, `checkout-image-${checkOut.id}`);
-                    }
+                    // Images are NOT loaded automatically - user must click "Load Images" button
                 }
             });
         }
@@ -408,9 +419,24 @@
                 const imageDiv = document.getElementById(imageElementId);
                 
                 if (data.image && imageDiv) {
+                    // Show loading indicator
                     imageDiv.innerHTML = `
-                        <img src="${data.image}" alt="Worker photo" class="w-full h-full object-cover">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
                     `;
+                    
+                    // Load image
+                    const img = new Image();
+                    img.onload = () => {
+                        imageDiv.innerHTML = `
+                            <img src="${data.image}" alt="Worker photo" class="w-full h-full object-cover">
+                        `;
+                    };
+                    img.onerror = () => {
+                        imageDiv.innerHTML = `
+                            <span class="text-xs text-red-400">Error</span>
+                        `;
+                    };
+                    img.src = data.image;
                 } else if (imageDiv) {
                     imageDiv.innerHTML = `
                         <span class="text-xs text-gray-400">N/A</span>
@@ -512,19 +538,91 @@
             updateSelection();
         }
         
-        // Update selection count and show/hide delete bar
+        // Update selection count and show/hide action bar
         function updateSelection() {
             const checkboxes = document.querySelectorAll('.row-checkbox:checked');
             const selectedCount = checkboxes.length;
-            const deleteBar = document.getElementById('delete-action-bar');
+            const actionBar = document.getElementById('action-bar');
             const selectedCountSpan = document.getElementById('selected-count');
             
             selectedCountSpan.textContent = selectedCount;
             
             if (selectedCount > 0) {
-                deleteBar.classList.remove('hidden');
+                actionBar.classList.remove('hidden');
             } else {
-                deleteBar.classList.add('hidden');
+                actionBar.classList.add('hidden');
+            }
+        }
+        
+        // Load images for selected rows
+        async function loadSelectedImages() {
+            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            
+            if (checkboxes.length === 0) {
+                alert('Please select at least one row to load images');
+                return;
+            }
+            
+            // Collect all record IDs from selected rows
+            const recordIds = new Set();
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                if (row) {
+                    const rowRecordIds = JSON.parse(row.getAttribute('data-record-ids') || '[]');
+                    rowRecordIds.forEach(id => recordIds.add(id));
+                }
+            });
+            
+            const idsArray = Array.from(recordIds);
+            
+            // Show loading indicator on button
+            const button = document.querySelector('button[onclick="loadSelectedImages()"]');
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white inline-block mr-2"></div>Loading...';
+            
+            try {
+                // Load images for all record IDs in selected rows
+                const imagePromises = [];
+                
+                idsArray.forEach(recordId => {
+                    // Find all image containers for this record ID
+                    const checkinImageDiv = document.getElementById(`checkin-image-${recordId}`);
+                    const checkoutImageDiv = document.getElementById(`checkout-image-${recordId}`);
+                    
+                    // Check if image exists and hasn't been loaded yet
+                    if (checkinImageDiv && checkinImageDiv.getAttribute('data-has-image') === 'true') {
+                        // Check if already loaded (has img tag)
+                        if (!checkinImageDiv.querySelector('img')) {
+                            imagePromises.push(loadImage(recordId, `checkin-image-${recordId}`));
+                        }
+                    }
+                    
+                    if (checkoutImageDiv && checkoutImageDiv.getAttribute('data-has-image') === 'true') {
+                        // Check if already loaded (has img tag)
+                        if (!checkoutImageDiv.querySelector('img')) {
+                            imagePromises.push(loadImage(recordId, `checkout-image-${recordId}`));
+                        }
+                    }
+                });
+                
+                // Wait for all images to load
+                await Promise.all(imagePromises);
+                
+                // Show success message
+                if (imagePromises.length > 0) {
+                    alert(`Successfully loaded ${imagePromises.length} image(s)`);
+                } else {
+                    alert('No images to load for selected rows');
+                }
+                
+            } catch (error) {
+                console.error('Error loading images:', error);
+                alert(`Error loading images: ${error.message}`);
+            } finally {
+                // Restore button
+                button.disabled = false;
+                button.innerHTML = originalText;
             }
         }
         
