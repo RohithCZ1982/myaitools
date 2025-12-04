@@ -8,6 +8,9 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Load API Key Configuration -->
+    <script src="config.js"></script>
+    
     <!-- Load Inter font and custom styles -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
@@ -356,37 +359,38 @@
                         return `<span class="text-xs text-gray-600">${coordText}</span>`;
                     };
                     
-                    // Format verification status
-                    const formatVerificationStatus = (checkOutRecord) => {
-                        if (!checkOutRecord || !checkOutRecord.face_data) {
+                    // Format verification status with button
+                    const formatVerificationStatus = (checkInRecord, checkOutRecord) => {
+                        if (!checkOutRecord) {
                             return '<span class="text-xs text-gray-400">-</span>';
                         }
                         
-                        try {
-                            // Parse face_data JSON
-                            const faceData = typeof checkOutRecord.face_data === 'string' 
-                                ? JSON.parse(checkOutRecord.face_data) 
-                                : checkOutRecord.face_data;
-                            
-                            // Check description field for verification status
-                            const description = faceData.description || '';
-                            
-                            if (description.includes('VERIFIED:')) {
-                                return '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Verified</span>';
-                            } else if (description.includes('NOT_VERIFIED:')) {
-                                const reason = description.split('NOT_VERIFIED:')[1]?.trim() || 'Not verified';
-                                return `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="${reason}">✗ Not Verified</span>`;
-                            } else if (description.includes('RECOGNIZED:')) {
-                                // This is a check-in, not a verification
-                                return '<span class="text-xs text-gray-400">N/A</span>';
-                            } else {
-                                // Unknown status
-                                return '<span class="text-xs text-gray-400">Unknown</span>';
-                            }
-                        } catch (error) {
-                            console.error('Error parsing face_data:', error);
-                            return '<span class="text-xs text-gray-400">Error</span>';
+                        // Check if both records have images
+                        const hasCheckInImage = checkInRecord && checkInRecord.encrypted_image;
+                        const hasCheckOutImage = checkOutRecord && checkOutRecord.encrypted_image;
+                        
+                        if (!hasCheckInImage || !hasCheckOutImage) {
+                            return '<span class="text-xs text-gray-400">No images</span>';
                         }
+                        
+                        // Create button for manual verification
+                        const checkInId = checkInRecord.id;
+                        const checkOutId = checkOutRecord.id;
+                        const buttonId = `verify-btn-${checkInId}-${checkOutId}`;
+                        const statusId = `verify-status-${checkInId}-${checkOutId}`;
+                        
+                        return `
+                            <div id="${statusId}" class="flex flex-col items-center gap-2">
+                                <button id="${buttonId}" 
+                                        onclick="verifyCheckInCheckOut(${checkInId}, ${checkOutId})"
+                                        class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Verify
+                                </button>
+                            </div>
+                        `;
                     };
                     
                     // Collect record IDs for this row (check-in and/or check-out)
@@ -430,7 +434,7 @@
                             </div>
                         </td>
                         <td class="px-4 py-3 text-center">
-                            ${formatVerificationStatus(checkOut)}
+                            ${formatVerificationStatus(checkIn, checkOut)}
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-600">${formatLocation(checkIn)}</td>
                         <td class="px-4 py-3 text-sm text-gray-600">${formatLocation(checkOut)}</td>
@@ -727,6 +731,170 @@
                 // Extract error message properly
                 const errorMessage = error instanceof Error ? error.message : (error?.detail || error?.message || String(error) || 'Unknown error occurred');
                 alert(`Error deleting records: ${errorMessage}`);
+            }
+        }
+        
+        // Verify check-in and check-out images
+        async function verifyCheckInCheckOut(checkInId, checkOutId) {
+            const buttonId = `verify-btn-${checkInId}-${checkOutId}`;
+            const statusId = `verify-status-${checkInId}-${checkOutId}`;
+            const button = document.getElementById(buttonId);
+            const statusDiv = document.getElementById(statusId);
+            
+            if (!button || !statusDiv) {
+                console.error('Button or status div not found');
+                return;
+            }
+            
+            // Disable button and show loading
+            button.disabled = true;
+            const originalButtonHTML = button.innerHTML;
+            button.innerHTML = '<div class="animate-spin rounded-full h-3 w-3 border-b-2 border-white inline-block mr-1"></div>Verifying...';
+            
+            try {
+                // Fetch both images
+                const [checkInResponse, checkOutResponse] = await Promise.all([
+                    fetch(`${BACKEND_API_URL}/api/clock/${checkInId}/image`),
+                    fetch(`${BACKEND_API_URL}/api/clock/${checkOutId}/image`)
+                ]);
+                
+                if (!checkInResponse.ok || !checkOutResponse.ok) {
+                    throw new Error('Failed to fetch images');
+                }
+                
+                const checkInData = await checkInResponse.json();
+                const checkOutData = await checkOutResponse.json();
+                
+                if (!checkInData.image || !checkOutData.image) {
+                    throw new Error('Images not available');
+                }
+                
+                // Extract base64 data
+                const checkInBase64 = checkInData.image.includes(',') 
+                    ? checkInData.image.split(',')[1] 
+                    : checkInData.image;
+                const checkOutBase64 = checkOutData.image.includes(',') 
+                    ? checkOutData.image.split(',')[1] 
+                    : checkOutData.image;
+                
+                // Get worker name from check-out record
+                const checkOutRecord = allRecords.find(r => r.id === checkOutId);
+                const workerName = checkOutRecord ? checkOutRecord.worker_name : 'Worker';
+                
+                // Call Gemini API for verification
+                const apiKey = CONFIG.getApiKey();
+                const modelName = 'gemini-2.0-flash-001'; // Use first model
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+                
+                const prompt = `You are a facial recognition system verifying worker identity. You will receive TWO images:
+1. First image: The worker ${workerName} checking IN (reference image)
+2. Second image: The person checking OUT (verification image)
+
+Compare these two images to verify if the person checking out is the same person who checked in.
+
+The person may be wearing:
+- Hard hat or safety helmet
+- Sunglasses or safety glasses  
+- Face mask or respirator
+- Beard or facial hair
+- Dirt or sweat on face
+- Different lighting conditions
+
+Compare these permanent features between the two images:
+- Face shape and structure
+- Eye position and spacing
+- Nose shape
+- Mouth and lip shape
+- Jawline and chin
+- Any distinguishing marks
+
+If the person in the second image (check-out) appears to be the SAME person as in the first image (check-in), accounting for safety gear and conditions, respond with: "VERIFIED: ${workerName}"
+If the person in the second image appears to be a DIFFERENT person, respond with: "NOT_VERIFIED: [specific reason why they don't match]"
+
+Be accurate but account for changes in appearance due to work conditions, lighting, and safety equipment.`;
+                
+                const requestBody = {
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            {
+                                inline_data: {
+                                    mime_type: "image/jpeg",
+                                    data: checkInBase64
+                                }
+                            },
+                            {
+                                inline_data: {
+                                    mime_type: "image/jpeg",
+                                    data: checkOutBase64
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 100
+                    }
+                };
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'Verification failed');
+                }
+                
+                const data = await response.json();
+                
+                // Extract result text
+                let resultText = '';
+                if (data && data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
+                    const candidate = data.candidates[0];
+                    if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
+                        resultText = candidate.content.parts[0].text || '';
+                    }
+                }
+                
+                // Update UI with result
+                const isVerified = resultText.includes('VERIFIED:');
+                const isNotVerified = resultText.includes('NOT_VERIFIED:');
+                
+                if (isVerified) {
+                    statusDiv.innerHTML = `
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ✓ Verified
+                        </span>
+                    `;
+                } else if (isNotVerified) {
+                    const reason = resultText.split('NOT_VERIFIED:')[1]?.trim() || 'Not verified';
+                    statusDiv.innerHTML = `
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="${reason}">
+                            ✗ Not Verified
+                        </span>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            ⚠ Unknown
+                        </span>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Verification error:', error);
+                statusDiv.innerHTML = `
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="${error.message}">
+                        ✗ Error
+                    </span>
+                `;
+            } finally {
+                // Button is replaced with status, so no need to restore
             }
         }
         
