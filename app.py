@@ -627,6 +627,201 @@ async def reverse_geocode_coords(latitude: float, longitude: float):
             "coordinates": f"{latitude}, {longitude}"
         }
 
+class SQLQueryRequest(BaseModel):
+    query: str
+    allow_write: bool = False  # Allow INSERT, UPDATE, DELETE operations
+
+@app.post("/api/sql/execute")
+async def execute_sql_query(request: SQLQueryRequest):
+    """Execute SQL query with safety checks"""
+    try:
+        query = request.query.strip()
+        
+        if not query:
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+        
+        # Security: Block dangerous operations
+        dangerous_keywords = ['DROP', 'TRUNCATE', 'ALTER', 'CREATE', 'GRANT', 'REVOKE']
+        query_upper = query.upper()
+        
+        # Check for dangerous operations
+        for keyword in dangerous_keywords:
+            if keyword in query_upper:
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Operation '{keyword}' is not allowed for security reasons"
+                )
+        
+        # If write operations not allowed, block INSERT, UPDATE, DELETE
+        if not request.allow_write:
+            write_keywords = ['INSERT', 'UPDATE', 'DELETE']
+            for keyword in write_keywords:
+                if keyword in query_upper:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"Write operations are disabled. Enable 'Allow Write Operations' to execute {keyword} statements."
+                    )
+        
+        # Limit query execution time and result size
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        import time
+        start_time = time.time()
+        
+        try:
+            # Execute query
+            cursor.execute(query)
+            
+            # Check if it's a SELECT query (returns rows)
+            if query_upper.strip().startswith('SELECT'):
+                rows = cursor.fetchall()
+                
+                # Get column names
+                if USE_POSTGRES:
+                    columns = [desc[0] for desc in cursor.description] if cursor.description else []
+                else:
+                    columns = [description[0] for description in cursor.description] if cursor.description else []
+                
+                # Limit results to 1000 rows
+                if len(rows) > 1000:
+                    rows = rows[:1000]
+                    warning = f"Results limited to 1000 rows. Total rows: {len(rows)}"
+                else:
+                    warning = None
+                
+                execution_time = time.time() - start_time
+                
+                # Convert rows to list of dicts for JSON serialization
+                result_rows = []
+                for row in rows:
+                    row_dict = {}
+                    for i, col in enumerate(columns):
+                        # Handle different data types
+                        value = row[i]
+                        if value is None:
+                            row_dict[col] = None
+                        elif isinstance(value, (int, float, str, bool)):
+                            row_dict[col] = value
+                        else:
+                            # Convert other types to string
+                            row_dict[col] = str(value)
+                    result_rows.append(row_dict)
+                
+                conn.close()
+                
+                return {
+                    "success": True,
+                    "columns": columns,
+                    "rows": result_rows,
+                    "row_count": len(result_rows),
+                    "execution_time_ms": round(execution_time * 1000, 2),
+                    "warning": warning
+                }
+            else:
+                # For non-SELECT queries (INSERT, UPDATE, DELETE)
+                conn.commit()
+                rows_affected = cursor.rowcount
+                execution_time = time.time() - start_time
+                conn.close()
+                
+                return {
+                    "success": True,
+                    "message": f"Query executed successfully. Rows affected: {rows_affected}",
+                    "rows_affected": rows_affected,
+                    "execution_time_ms": round(execution_time * 1000, 2)
+                }
+                
+        except Exception as db_error:
+            conn.rollback()
+            conn.close()
+            raise HTTPException(status_code=400, detail=f"SQL Error: {str(db_error)}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error executing query: {str(e)}")
+
+@app.get("/api/sql/tables")
+async def get_table_list():
+    """Get list of all tables in the database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if USE_POSTGRES:
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                ORDER BY table_name
+            """)
+        else:
+            cursor.execute("""
+                SELECT name 
+                FROM sqlite_master 
+                WHERE type='table' 
+                ORDER BY name
+            """)
+        
+        tables = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        
+        return {"tables": tables}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching tables: {str(e)}")
+
+@app.get("/api/sql/table/{table_name}")
+async def get_table_schema(table_name: str):
+    """Get schema information for a specific table"""
+    try:
+        # Sanitize table name (prevent SQL injection)
+        if not table_name.replace('_', '').replace('-', '').isalnum():
+            raise HTTPException(status_code=400, detail="Invalid table name")
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if USE_POSTGRES:
+            cursor.execute("""
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_name = %s
+                ORDER BY ordinal_position
+            """, (table_name,))
+        else:
+            cursor.execute(f"PRAGMA table_info({table_name})")
+        
+        columns = cursor.fetchall()
+        conn.close()
+        
+        if USE_POSTGRES:
+            schema = [
+                {
+                    "name": col[0],
+                    "type": col[1],
+                    "nullable": col[2] == "YES",
+                    "default": col[3]
+                }
+                for col in columns
+            ]
+        else:
+            schema = [
+                {
+                    "name": col[1],
+                    "type": col[2],
+                    "nullable": col[3] == 0,
+                    "default": col[4]
+                }
+                for col in columns
+            ]
+        
+        return {"table": table_name, "schema": schema}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching table schema: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
