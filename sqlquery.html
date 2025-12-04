@@ -8,6 +8,9 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Load API Key Configuration -->
+    <script src="config.js"></script>
+    
     <!-- Load Inter font and custom styles -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
@@ -198,6 +201,53 @@
             <div id="success-section" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
                 <p class="text-sm text-green-600 font-medium mb-2">Success</p>
                 <p class="text-green-800" id="success-message"></p>
+            </div>
+            
+            <!-- Image Comparison Section -->
+            <div class="mt-8 pt-8 border-t border-gray-300">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Image Comparison Tool</h2>
+                <p class="text-gray-600 mb-6">Upload two images to compare and verify if they show the same person</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Image 1 Upload -->
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Image 1 (Reference)</label>
+                        <input type="file" id="image1-upload" accept="image/*" class="mb-3 text-sm">
+                        <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
+                            <img id="image1-preview" class="hidden w-full h-full object-contain" alt="Image 1 preview">
+                            <span id="image1-placeholder" class="text-sm text-gray-400">No image selected</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Image 2 Upload -->
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Image 2 (Verification)</label>
+                        <input type="file" id="image2-upload" accept="image/*" class="mb-3 text-sm">
+                        <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
+                            <img id="image2-preview" class="hidden w-full h-full object-contain" alt="Image 2 preview">
+                            <span id="image2-placeholder" class="text-sm text-gray-400">No image selected</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Compare Button -->
+                <div class="mb-4">
+                    <button onclick="compareImages()" 
+                            id="compare-btn"
+                            class="w-full md:w-auto px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Compare Images
+                    </button>
+                </div>
+                
+                <!-- Comparison Result -->
+                <div id="comparison-result" class="hidden mt-4">
+                    <div class="p-4 rounded-xl border" id="comparison-result-content">
+                        <!-- Result will be inserted here -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -508,6 +558,238 @@
                 executeQuery();
             }
         });
+        
+        // Image upload preview handlers
+        document.getElementById('image1-upload').addEventListener('change', (e) => {
+            handleImageUpload(e, 'image1-preview', 'image1-placeholder');
+        });
+        
+        document.getElementById('image2-upload').addEventListener('change', (e) => {
+            handleImageUpload(e, 'image2-preview', 'image2-placeholder');
+        });
+        
+        function handleImageUpload(event, previewId, placeholderId) {
+            const file = event.target.files[0];
+            const preview = document.getElementById(previewId);
+            const placeholder = document.getElementById(placeholderId);
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+        }
+        
+        // Compare two images using Gemini API
+        async function compareImages() {
+            const image1Input = document.getElementById('image1-upload');
+            const image2Input = document.getElementById('image2-upload');
+            const compareBtn = document.getElementById('compare-btn');
+            const resultDiv = document.getElementById('comparison-result');
+            const resultContent = document.getElementById('comparison-result-content');
+            
+            // Validate inputs
+            if (!image1Input.files[0] || !image2Input.files[0]) {
+                alert('Please upload both images before comparing');
+                return;
+            }
+            
+            // Disable button and show loading
+            compareBtn.disabled = true;
+            const originalButtonHTML = compareBtn.innerHTML;
+            compareBtn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white inline-block mr-2"></div>Comparing...';
+            
+            resultDiv.classList.add('hidden');
+            
+            try {
+                // Convert images to base64
+                const image1Base64 = await fileToBase64(image1Input.files[0]);
+                const image2Base64 = await fileToBase64(image2Input.files[0]);
+                
+                // Extract base64 data (remove data:image/...;base64, prefix)
+                const image1Data = image1Base64.includes(',') ? image1Base64.split(',')[1] : image1Base64;
+                const image2Data = image2Base64.includes(',') ? image2Base64.split(',')[1] : image2Base64;
+                
+                // Get API key from config
+                const apiKey = CONFIG.getApiKey();
+                if (!apiKey) {
+                    throw new Error('API key not configured. Please set up your API key in config.js');
+                }
+                
+                const modelName = 'gemini-2.0-flash-001';
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+                
+                const prompt = `You are a STRICT facial recognition security system. You will receive TWO images:
+1. First image: Reference image (Image 1)
+2. Second image: Verification image (Image 2)
+
+CRITICAL: You must be VERY STRICT. Only verify if you are HIGHLY CONFIDENT (90%+ certainty) that both images show the SAME person.
+
+Compare these permanent features between the two images CAREFULLY:
+- Face shape and structure (must match closely)
+- Eye position, spacing, and shape (must match)
+- Nose shape and size (must match)
+- Mouth and lip shape (must match)
+- Jawline and chin structure (must match)
+- Overall facial proportions (must match)
+- Any distinguishing marks, moles, or features (must match)
+
+IMPORTANT RULES:
+- If there are ANY significant differences in facial structure, respond with NOT_VERIFIED
+- If you cannot clearly see enough features to compare, respond with NOT_VERIFIED
+- If the faces look similar but you have ANY doubt, respond with NOT_VERIFIED
+- Only respond VERIFIED if you are ABSOLUTELY CERTAIN it's the same person
+
+The person may be wearing safety gear (helmet, glasses, mask), but the underlying facial features must still match clearly.
+
+If the person in the second image is DEFINITELY the SAME person as in the first image, respond with: "VERIFIED: Same person"
+If the person appears to be DIFFERENT, or if you have ANY doubt, respond with: "NOT_VERIFIED: [specific reason - e.g., different face shape, different eye spacing, different nose, etc.]"
+
+Be STRICT and ACCURATE. Security is more important than convenience.`;
+                
+                const requestBody = {
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            {
+                                inline_data: {
+                                    mime_type: "image/jpeg",
+                                    data: image1Data
+                                }
+                            },
+                            {
+                                inline_data: {
+                                    mime_type: "image/jpeg",
+                                    data: image2Data
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 200
+                    }
+                };
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'Comparison failed');
+                }
+                
+                const data = await response.json();
+                
+                // Extract result text
+                let resultText = '';
+                if (data && data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
+                    const candidate = data.candidates[0];
+                    if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
+                        resultText = candidate.content.parts[0].text || '';
+                    }
+                }
+                
+                // Display result
+                const isVerified = resultText.includes('VERIFIED:');
+                const isNotVerified = resultText.includes('NOT_VERIFIED:');
+                
+                resultDiv.classList.remove('hidden');
+                
+                if (isVerified) {
+                    resultContent.className = 'p-4 rounded-xl border border-green-200 bg-green-50';
+                    resultContent.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0">
+                                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-green-800 mb-2">✓ Verified - Same Person</h3>
+                                <p class="text-green-700 text-sm">${resultText}</p>
+                            </div>
+                        </div>
+                    `;
+                } else if (isNotVerified) {
+                    const reason = resultText.split('NOT_VERIFIED:')[1]?.trim() || 'Not verified';
+                    resultContent.className = 'p-4 rounded-xl border border-red-200 bg-red-50';
+                    resultContent.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0">
+                                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-red-800 mb-2">✗ Not Verified - Different Person</h3>
+                                <p class="text-red-700 text-sm">${reason}</p>
+                                <p class="text-red-600 text-xs mt-2">Full response: ${resultText}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultContent.className = 'p-4 rounded-xl border border-yellow-200 bg-yellow-50';
+                    resultContent.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0">
+                                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-yellow-800 mb-2">⚠ Unknown Result</h3>
+                                <p class="text-yellow-700 text-sm">${resultText}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Image comparison error:', error);
+                resultDiv.classList.remove('hidden');
+                resultContent.className = 'p-4 rounded-xl border border-red-200 bg-red-50';
+                resultContent.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0">
+                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-red-800 mb-2">Error</h3>
+                            <p class="text-red-700 text-sm">${error.message}</p>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                // Restore button
+                compareBtn.disabled = false;
+                compareBtn.innerHTML = originalButtonHTML;
+            }
+        }
+        
+        // Convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
     </script>
 </body>
 </html>
