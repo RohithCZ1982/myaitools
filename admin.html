@@ -189,6 +189,7 @@
                             <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Check-out Time</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Check-in Image</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Check-out Image</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Verification Status</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Location Check-in</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-800 uppercase tracking-wider border-b border-emerald-200 whitespace-nowrap">Location Check-out</th>
                         </tr>
@@ -355,6 +356,39 @@
                         return `<span class="text-xs text-gray-600">${coordText}</span>`;
                     };
                     
+                    // Format verification status
+                    const formatVerificationStatus = (checkOutRecord) => {
+                        if (!checkOutRecord || !checkOutRecord.face_data) {
+                            return '<span class="text-xs text-gray-400">-</span>';
+                        }
+                        
+                        try {
+                            // Parse face_data JSON
+                            const faceData = typeof checkOutRecord.face_data === 'string' 
+                                ? JSON.parse(checkOutRecord.face_data) 
+                                : checkOutRecord.face_data;
+                            
+                            // Check description field for verification status
+                            const description = faceData.description || '';
+                            
+                            if (description.includes('VERIFIED:')) {
+                                return '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Verified</span>';
+                            } else if (description.includes('NOT_VERIFIED:')) {
+                                const reason = description.split('NOT_VERIFIED:')[1]?.trim() || 'Not verified';
+                                return `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="${reason}">✗ Not Verified</span>`;
+                            } else if (description.includes('RECOGNIZED:')) {
+                                // This is a check-in, not a verification
+                                return '<span class="text-xs text-gray-400">N/A</span>';
+                            } else {
+                                // Unknown status
+                                return '<span class="text-xs text-gray-400">Unknown</span>';
+                            }
+                        } catch (error) {
+                            console.error('Error parsing face_data:', error);
+                            return '<span class="text-xs text-gray-400">Error</span>';
+                        }
+                    };
+                    
                     // Collect record IDs for this row (check-in and/or check-out)
                     const recordIds = [];
                     if (checkIn) recordIds.push(checkIn.id);
@@ -394,6 +428,9 @@
                                     '<span class="text-xs text-gray-400">Click "Load Images"</span>' : 
                                     '<span class="text-xs text-gray-400">-</span>'}
                             </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            ${formatVerificationStatus(checkOut)}
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-600">${formatLocation(checkIn)}</td>
                         <td class="px-4 py-3 text-sm text-gray-600">${formatLocation(checkOut)}</td>

@@ -427,6 +427,49 @@
         }
         
         /**
+         * Get the latest check-in record for the current worker
+         */
+        async function getLatestCheckInRecord() {
+            try {
+                const response = await fetch(`${BACKEND_API_URL}/api/clock?worker_name=${encodeURIComponent(workerName)}&limit=100`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch records');
+                }
+                
+                const records = await response.json();
+                // Find the most recent check-in record
+                const checkInRecords = records.filter(r => r.action === 'check-in' && r.encrypted_image);
+                if (checkInRecords.length === 0) {
+                    return null;
+                }
+                
+                // Sort by timestamp and get the latest
+                checkInRecords.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                return checkInRecords[0];
+            } catch (error) {
+                console.error('Error fetching check-in record:', error);
+                return null;
+            }
+        }
+        
+        /**
+         * Get decrypted check-in image
+         */
+        async function getCheckInImage(checkInRecordId) {
+            try {
+                const response = await fetch(`${BACKEND_API_URL}/api/clock/${checkInRecordId}/image`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch check-in image');
+                }
+                const data = await response.json();
+                return data.image; // Returns data:image/jpeg;base64,...
+            } catch (error) {
+                console.error('Error fetching check-in image:', error);
+                return null;
+            }
+        }
+        
+        /**
          * Process the submitted photo (check-in or check-out)
          */
         async function processSubmittedPhoto() {
@@ -445,7 +488,21 @@
                 loadingIndicator.classList.remove('hidden');
                 messageContainer.innerHTML = '';
                 
-                const recognitionResult = await recognizeFace(capturedImageData, location, currentAction);
+                // For check-out, get the check-in image for comparison
+                let checkInImageData = null;
+                if (currentAction === 'check-out') {
+                    const checkInRecord = await getLatestCheckInRecord();
+                    if (checkInRecord) {
+                        checkInImageData = await getCheckInImage(checkInRecord.id);
+                        if (!checkInImageData) {
+                            showMessage('Warning: Could not retrieve check-in image. Verification may be less accurate.', 'error');
+                        }
+                    } else {
+                        showMessage('Warning: No check-in record found. Cannot verify identity.', 'error');
+                    }
+                }
+                
+                const recognitionResult = await recognizeFace(capturedImageData, location, currentAction, 0, checkInImageData);
                 
                 loadingIndicator.classList.add('hidden');
                 
@@ -739,7 +796,7 @@
         /**
          * Recognize face using Gemini API with model fallback
          */
-        async function recognizeFace(imageData, location, action, modelIndex = 0) {
+        async function recognizeFace(imageData, location, action, modelIndex = 0, checkInImageData = null) {
             try {
                 // Extract base64 data (remove data:image/jpeg;base64, prefix if present)
                 const base64Data = imageData.includes(',') 
@@ -771,6 +828,33 @@ If you can detect a human face with at least 2-3 identifiable features, respond 
 If no face is detected or face is too obscured, respond with: "NOT_RECOGNIZED: [specific reason]"
 
 Be lenient - construction workers often have obscured faces but should still be recognizable.`
+                    : checkInImageData 
+                    ? `You are a facial recognition system verifying worker identity. You will receive TWO images:
+1. First image: The worker ${workerName} checking IN (reference image)
+2. Second image: The person checking OUT (verification image)
+
+Compare these two images to verify if the person checking out is the same person who checked in.
+
+The person may be wearing:
+- Hard hat or safety helmet
+- Sunglasses or safety glasses  
+- Face mask or respirator
+- Beard or facial hair
+- Dirt or sweat on face
+- Different lighting conditions
+
+Compare these permanent features between the two images:
+- Face shape and structure
+- Eye position and spacing
+- Nose shape
+- Mouth and lip shape
+- Jawline and chin
+- Any distinguishing marks
+
+If the person in the second image (check-out) appears to be the SAME person as in the first image (check-in), accounting for safety gear and conditions, respond with: "VERIFIED: ${workerName}"
+If the person in the second image appears to be a DIFFERENT person, respond with: "NOT_VERIFIED: [specific reason why they don't match]"
+
+Be accurate but account for changes in appearance due to work conditions, lighting, and safety equipment.`
                     : `You are a facial recognition system verifying worker identity. Compare this image to the worker who checked in earlier as ${workerName}.
 
 The person may be wearing:
@@ -794,18 +878,45 @@ If this appears to be a different person, respond with: "NOT_VERIFIED: [specific
 
 Be accurate but account for changes in appearance due to work conditions.`;
                 
+                // Prepare request parts
+                const parts = [{ text: prompt }];
+                
+                // For check-out with check-in image, add both images
+                if (action === 'check-out' && checkInImageData) {
+                    // Extract base64 from check-in image
+                    const checkInBase64 = checkInImageData.includes(',') 
+                        ? checkInImageData.split(',')[1] 
+                        : checkInImageData;
+                    
+                    // Add check-in image first (reference)
+                    parts.push({
+                        inline_data: {
+                            mime_type: "image/jpeg",
+                            data: checkInBase64
+                        }
+                    });
+                    
+                    // Add check-out image second (verification)
+                    parts.push({
+                        inline_data: {
+                            mime_type: "image/jpeg",
+                            data: base64Data
+                        }
+                    });
+                } else {
+                    // For check-in or check-out without check-in image, add only current image
+                    parts.push({
+                        inline_data: {
+                            mime_type: "image/jpeg",
+                            data: base64Data
+                        }
+                    });
+                }
+                
                 // Prepare request - use base64 data directly (API expects base64 string)
                 const requestBody = {
                     contents: [{
-                        parts: [
-                            { text: prompt },
-                            {
-                                inline_data: {
-                                    mime_type: "image/jpeg",
-                                    data: base64Data
-                                }
-                            }
-                        ]
+                        parts: parts
                     }],
                     generationConfig: {
                         temperature: 0.1,
@@ -850,7 +961,7 @@ Be accurate but account for changes in appearance due to work conditions.`;
                     // If fetch fails and we have more models to try, attempt next model
                     if (modelIndex < MODEL_OPTIONS.length - 1) {
                         console.log(`Error with ${currentModel}, trying next model...`, fetchError);
-                        return recognizeFace(imageData, location, action, modelIndex + 1);
+                        return recognizeFace(imageData, location, action, modelIndex + 1, checkInImageData);
                     }
                     throw fetchError;
                 }
@@ -885,7 +996,7 @@ Be accurate but account for changes in appearance due to work conditions.`;
                     console.error('Unexpected API response structure:', data);
                     // If we have more models to try, attempt next model
                     if (modelIndex < MODEL_OPTIONS.length - 1) {
-                        return recognizeFace(imageData, location, action, modelIndex + 1);
+                        return recognizeFace(imageData, location, action, modelIndex + 1, checkInImageData);
                     }
                     throw new Error('API returned unexpected response format. Please check console for details.');
                 }
