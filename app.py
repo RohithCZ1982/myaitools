@@ -687,30 +687,40 @@ async def reverse_geocode_coords(latitude: float, longitude: float):
         if address_components:
             formatted_address = ", ".join(address_components)
         else:
-            formatted_address = data.get("display_name", f"{latitude}, {longitude}")
+            display_name = data.get("display_name", "")
+            # Only use display_name if it looks like a real address (not just coordinates)
+            if display_name and len(display_name) > 20 and "," in display_name:
+                formatted_address = display_name
+            else:
+                # If no proper address found, return None to avoid showing coordinates twice
+                formatted_address = None
         
         # If postcode is missing or seems wrong, try Google as fallback
         google_api_key = os.getenv("GOOGLE_GEOCODING_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if (not postcode or len(str(postcode)) < 4) and google_api_key:
             # Try Google Geocoding for better postcode accuracy
             google_result = await reverse_geocode_with_google(latitude, longitude, google_api_key)
-            if google_result and google_result.get("postcode"):
-                # Use Google's postcode if it's available
-                postcode = google_result["postcode"]
-                # Update address with correct postcode
-                if postcode not in formatted_address:
-                    # Replace old postcode or add new one
-                    import re
-                    formatted_address = re.sub(r'\b\d{4,6}\b', postcode, formatted_address)
-                    if postcode not in formatted_address:
-                        # Insert postcode before country
-                        parts = formatted_address.split(", ")
-                        if address_parts.get("country") and address_parts["country"] in parts:
-                            idx = parts.index(address_parts["country"])
-                            parts.insert(idx, postcode)
-                        else:
-                            parts.append(postcode)
-                        formatted_address = ", ".join(parts)
+            if google_result:
+                # If we got a full address from Google, use it
+                if google_result.get("address"):
+                    formatted_address = google_result["address"]
+                # Use Google's postcode if available
+                if google_result.get("postcode"):
+                    postcode = google_result["postcode"]
+                    # Update address with correct postcode if we have an address
+                    if formatted_address and postcode not in formatted_address:
+                        # Replace old postcode or add new one
+                        import re
+                        formatted_address = re.sub(r'\b\d{4,6}\b', postcode, formatted_address)
+                        if postcode not in formatted_address:
+                            # Insert postcode before country
+                            parts = formatted_address.split(", ")
+                            if address_parts.get("country") and address_parts["country"] in parts:
+                                idx = parts.index(address_parts["country"])
+                                parts.insert(idx, postcode)
+                            else:
+                                parts.append(postcode)
+                            formatted_address = ", ".join(parts)
         
         # Also return postcode separately for verification
         return {
@@ -728,10 +738,10 @@ async def reverse_geocode_coords(latitude: float, longitude: float):
             if google_result:
                 return google_result
         
-        # If both fail, return coordinates only (don't fail completely)
+        # If both fail, return None for address (don't duplicate coordinates)
         print(f"Geocoding failed: {e}")
         return {
-            "address": f"{latitude}, {longitude}",  # Just return coordinates if geocoding fails
+            "address": None,  # Return None instead of coordinates to avoid duplication
             "coordinates": f"{latitude}, {longitude}",
             "postcode": None
         }
