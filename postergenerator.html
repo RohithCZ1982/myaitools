@@ -140,7 +140,7 @@
                        file:text-sm file:font-semibold
                        file:bg-emerald-50 file:text-emerald-700
                        hover:file:bg-emerald-100 cursor-pointer">
-                <p class="mt-1 text-xs text-gray-400">Upload your company logo to be placed above the company name. The logo will maintain its transparency.</p>
+                <p class="mt-1 text-xs text-gray-400">Upload your company logo to be placed above the heading/main title. The logo will maintain its transparency.</p>
                 <div id="logo-preview-container" class="mt-2 hidden">
                     <div class="inline-block">
                         <img id="logo-preview" class="max-h-24 w-24 h-24 object-cover rounded-full border-2 border-gray-300 p-1" alt="Logo preview">
@@ -297,7 +297,7 @@
         }
 
         /**
-         * Composites the logo onto the generated poster image in a circular shape, positioned above the company name.
+         * Composites the logo onto the generated poster image, positioned above the heading/main title.
          * @param {string} posterBase64 The base64 string of the generated poster.
          * @param {string} logoBase64 The base64 string of the logo (without data URL prefix).
          * @returns {Promise<string>} Base64 string of the composite image.
@@ -322,8 +322,8 @@
                             // Draw the poster image
                             ctx.drawImage(posterImg, 0, 0);
                             
-                            // Calculate circular logo size
-                            // Logo will be placed at top center, above company name
+                            // Calculate logo size
+                            // Logo will be placed at top center, above the heading/main title
                             const logoSize = Math.min(
                                 canvas.width * 0.12, // 12% of poster width
                                 canvas.height * 0.10, // 10% of poster height
@@ -332,9 +332,9 @@
                             
                             const radius = logoSize / 2;
                             
-                            // Position: top center (above where company name will be)
+                            // Position: top center (above where the heading/main title will be)
                             const x = canvas.width / 2; // Center horizontally
-                            const y = canvas.height * 0.08; // 8% from top
+                            const y = canvas.height * 0.08; // 8% from top - positioned above the heading
                             
                             // Calculate logo dimensions maintaining aspect ratio
                             const logoAspectRatio = logoImg.width / logoImg.height;
@@ -457,7 +457,7 @@
 
             // Add logo instruction if logo is uploaded
             if (logoBase64Data) {
-                prompt += `The poster must clearly display the company/brand name " ${companyNameValue} " centered near the top of the poster, positioned below where a circular logo will be placed. IMPORTANT: Do NOT create or generate any logo design, icon, or symbol. Only display the company name as text. Leave space at the very top center (approximately 10% of the height) for a circular logo to be added. The company name should be positioned directly below this space, centered horizontally. `;
+                prompt += `IMPORTANT: Leave space at the very top center (approximately 8-10% from the top) for a circular logo to be added. The main title/heading " ${keyTextValue} " should be positioned directly below this logo space, prominently displayed and centered. The company/brand name " ${companyNameValue} " should be displayed below the main title, centered horizontally. Do NOT create or generate any logo design, icon, or symbol in the image. Only display text. `;
             } else {
                 prompt += `The poster must clearly display the company/brand name " ${companyNameValue} " near the top center, styled as text only. Do NOT create any logo, icon, or symbol design. `;
             }
