@@ -140,7 +140,7 @@
                        file:text-sm file:font-semibold
                        file:bg-emerald-50 file:text-emerald-700
                        hover:file:bg-emerald-100 cursor-pointer">
-                <p class="mt-1 text-xs text-gray-400">Upload your company logo to be placed above the company name. The logo will maintain its transparency.</p>
+                <p class="mt-1 text-xs text-gray-400">Upload your company logo to be placed above the heading/main title. The logo will maintain its transparency.</p>
                 <div id="logo-preview-container" class="mt-2 hidden">
                     <div class="inline-block">
                         <img id="logo-preview" class="max-h-24 w-24 h-24 object-cover rounded-full border-2 border-gray-300 p-1" alt="Logo preview">
@@ -297,7 +297,7 @@
         }
 
         /**
-         * Composites the logo onto the generated poster image in a circular shape, positioned above the company name.
+         * Composites the logo onto the generated poster image, positioned above the heading/main title.
          * @param {string} posterBase64 The base64 string of the generated poster.
          * @param {string} logoBase64 The base64 string of the logo (without data URL prefix).
          * @returns {Promise<string>} Base64 string of the composite image.
@@ -322,8 +322,8 @@
                             // Draw the poster image
                             ctx.drawImage(posterImg, 0, 0);
                             
-                            // Calculate circular logo size
-                            // Logo will be placed at top center, above company name
+                            // Calculate logo size
+                            // Logo will be placed at top center, above the heading/main title
                             const logoSize = Math.min(
                                 canvas.width * 0.12, // 12% of poster width
                                 canvas.height * 0.10, // 10% of poster height
@@ -332,9 +332,9 @@
                             
                             const radius = logoSize / 2;
                             
-                            // Position: top center (above where company name will be)
+                            // Position: top center (above where the heading/main title will be)
                             const x = canvas.width / 2; // Center horizontally
-                            const y = canvas.height * 0.08; // 8% from top
+                            const y = canvas.height * 0.08; // 8% from top - positioned above the heading
                             
                             // Calculate logo dimensions maintaining aspect ratio
                             const logoAspectRatio = logoImg.width / logoImg.height;
@@ -440,6 +440,9 @@
 
             let prompt = `Generate a high-resolution, professional, highly detailed, modern social media status poster in a vertical aspect ratio (9:16) suitable for Instagram Stories and WhatsApp Status. The poster must feature the main title " ${keyTextValue} " prominently. The design style should be ${themeValue}. `;
 
+            // CRITICAL: Add explicit instruction to never generate logos
+            prompt += `CRITICAL INSTRUCTION: Do NOT generate, create, or design any logo, icon, symbol, emblem, badge, or graphic mark of any kind. Do NOT create any visual representation of a brand identity or company logo. Only display text content. No logos should appear in the generated image. `;
+
             // Add reference image instruction if provided
             if (referenceImageBase64Data) {
                 prompt += `Use the provided reference image as a style guide for color palette, composition, mood, and visual aesthetics. Match the overall feel and artistic direction of the reference image while creating a unique poster design. `;
@@ -457,9 +460,9 @@
 
             // Add logo instruction if logo is uploaded
             if (logoBase64Data) {
-                prompt += `The poster must clearly display the company/brand name " ${companyNameValue} " centered near the top of the poster, positioned below where a circular logo will be placed. IMPORTANT: Do NOT create or generate any logo design, icon, or symbol. Only display the company name as text. Leave space at the very top center (approximately 10% of the height) for a circular logo to be added. The company name should be positioned directly below this space, centered horizontally. `;
+                prompt += `IMPORTANT: Leave empty space at the very top center (approximately 8-10% from the top) for a circular logo to be added separately. The main title/heading " ${keyTextValue} " should be positioned directly below this empty logo space, prominently displayed and centered. The company/brand name " ${companyNameValue} " should be displayed below the main title, centered horizontally. REMINDER: Do NOT create, generate, or design any logo, icon, or symbol in this space or anywhere else in the image. Only display text. `;
             } else {
-                prompt += `The poster must clearly display the company/brand name " ${companyNameValue} " near the top center, styled as text only. Do NOT create any logo, icon, or symbol design. `;
+                prompt += `The poster must clearly display the company/brand name " ${companyNameValue} " near the top center, styled as text only. REMINDER: Do NOT create, generate, or design any logo, icon, symbol, or graphic mark. `;
             }
             
             prompt += `Add the contact information " ${contactInfoValue} " subtly at the bottom. Ensure all text is perfectly integrated and highly legible against the background.`;
@@ -779,12 +782,12 @@
             }
             
             // Set default form values
-            keyText.value = "Ornate Mandala Workshop";
-            theme.value = "Artistic, calming, vibrant green and teal colors, clean layout";
-            workshopImageDesc.value = "A detailed, colorful mandala pattern, similar to the provided reference";
-            details.value = "Date: 6th December | Time: 4:30 PM - 7:00 PM | Fee: ₹1200";
-            companyName.value = "thehobbyplace - find your passion";
-            contactInfo.value = "Call: 9620-847-069 | @thehobbyplace.in | The Hobby Place, Mysuru";
+            keyText.value = "School Day Event";
+            theme.value = "Artistic, calming, us the colors which are in the logo with full design all over the page. with some kids (not real kids)images";
+            workshopImageDesc.value = "A joyfull kids annula day event";
+            details.value = "Welcome all Date: 6th January| Time: 4:30 PM - 7:00 PM";
+            companyName.value = "First Step Montessori - We Nuture Your Dreams";
+            contactInfo.value = "Call: 2345-847-069 | @firststepmontessor.in | First Step Montessori, Mysuru";
         };
 
         // Logo upload preview and data storage
