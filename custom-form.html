@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Form</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Inter font and custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        /* Custom scrollbar for better mobile feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #6EE7B7; /* Tailwind green-300 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #34D399; /* Tailwind green-400 */
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 flex flex-col items-center justify-start bg-gray-50">
+
+    <div class="w-full max-w-4xl bg-white shadow-xl rounded-2xl p-6 lg:p-8">
+        <!-- Back Button -->
+        <a href="index.html" 
+           class="inline-flex items-center text-sm text-emerald-600 hover:text-emerald-700 font-medium mb-4 transition-colors duration-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Home
+        </a>
+        
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Feedback Form</h1>
+        <p class="text-gray-500 mb-6">Please fill out the form below. Your feedback is important to us.</p>
+        
+        <!-- Poster Image -->
+        <div class="mb-6">
+            <div class="w-full flex justify-center">
+                <img src="poster.jpg" alt="Reference Poster" class="max-w-full h-auto rounded-lg shadow-md">
+            </div>
+        </div>
+        
+        <!-- Custom Form -->
+        <form id="feedback-form" class="space-y-6">
+            <!-- Name Field -->
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                    Name <span class="text-red-500">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    name="name" 
+                    required 
+                    placeholder="Enter your name"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Email Field -->
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                    Email <span class="text-red-500">*</span>
+                </label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    placeholder="Enter your email"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Phone Field -->
+            <div>
+                <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                </label>
+                <input 
+                    type="tel" 
+                    id="phone" 
+                    name="phone" 
+                    placeholder="Enter your phone number"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150">
+            </div>
+
+            <!-- Message/Feedback Field -->
+            <div>
+                <label for="message" class="block text-sm font-medium text-gray-700 mb-2">
+                    Message / Feedback <span class="text-red-500">*</span>
+                </label>
+                <textarea 
+                    id="message" 
+                    name="message" 
+                    required 
+                    rows="6"
+                    placeholder="Enter your message or feedback"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 resize-none"></textarea>
+            </div>
+
+            <!-- File Upload Field -->
+            <div>
+                <label for="file-upload" class="block text-sm font-medium text-gray-700 mb-2">
+                    Upload Image or Video (Optional)
+                </label>
+                <input 
+                    type="file" 
+                    id="file-upload" 
+                    name="file-upload" 
+                    accept="image/*,video/*"
+                    class="block w-full text-sm text-gray-700
+                           file:mr-4 file:py-3 file:px-4
+                           file:rounded-lg file:border-0
+                           file:text-sm file:font-semibold
+                           file:bg-emerald-50 file:text-emerald-700
+                           hover:file:bg-emerald-100 cursor-pointer
+                           border border-gray-300 rounded-lg p-2">
+                <p class="mt-2 text-xs text-gray-500">Accepted formats: Images (JPG, PNG, GIF) and Videos (MP4, MOV, AVI). Max file size: 25MB</p>
+                <div id="file-preview" class="mt-3 hidden">
+                    <div class="relative inline-block">
+                        <img id="file-preview-image" class="max-w-xs max-h-48 rounded-lg border-2 border-gray-300" alt="Preview">
+                        <button type="button" id="remove-file" class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p id="file-name" class="mt-2 text-sm text-gray-600"></p>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button 
+                type="submit" 
+                id="submit-button"
+                class="w-full flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-xl shadow-lg text-white bg-emerald-500 hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span id="submit-text">Submit Form</span>
+                <svg id="submit-spinner" class="hidden animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+
+            <!-- Success/Error Messages -->
+            <div id="form-message" class="hidden mt-4 p-4 rounded-lg"></div>
+        </form>
+    </div>
+
+    <script>
+        // IMPORTANT: Replace this URL with your Google Apps Script Web App URL
+        // See google-apps-script-code.gs file for setup instructions
+        // Get this from: Google Apps Script > Deploy > Manage deployments > Copy URL
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxfe4594F9zensMd7h03-EJiO7y3Qqc1M1ry-HT9oPh1FDYEIEOEqdlbT6Gl8PX5EV3Eg/exec';
+        
+        // Debug mode - set to true to see detailed logs in console (F12)
+        const DEBUG_MODE = true;
+
+        const form = document.getElementById('feedback-form');
+        const submitButton = document.getElementById('submit-button');
+        const submitText = document.getElementById('submit-text');
+        const submitSpinner = document.getElementById('submit-spinner');
+        const formMessage = document.getElementById('form-message');
+        const fileUpload = document.getElementById('file-upload');
+        const filePreview = document.getElementById('file-preview');
+        const filePreviewImage = document.getElementById('file-preview-image');
+        const fileName = document.getElementById('file-name');
+        const removeFileBtn = document.getElementById('remove-file');
+
+        // Handle file preview
+        fileUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Validate file size (25MB limit)
+                const maxSize = 25 * 1024 * 1024; // 25MB in bytes
+                if (file.size > maxSize) {
+                    showMessage('File size exceeds 25MB limit. Please choose a smaller file.', 'error');
+                    fileUpload.value = '';
+                    return;
+                }
+
+                fileName.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                
+                // Show preview for images
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        filePreviewImage.src = e.target.result;
+                        filePreview.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                } else if (file.type.startsWith('video/')) {
+                    // For videos, just show the filename
+                    filePreviewImage.src = ''; // Hide image preview for videos
+                    filePreview.classList.remove('hidden');
+                    filePreviewImage.style.display = 'none';
+                }
+            }
+        });
+
+        // Handle file removal
+        removeFileBtn.addEventListener('click', () => {
+            fileUpload.value = '';
+            filePreview.classList.add('hidden');
+            filePreviewImage.style.display = '';
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Validate Google Script URL
+            if (GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+                showMessage('Please configure the Google Apps Script URL. See setup instructions.', 'error');
+                return;
+            }
+
+            // Disable submit button
+            submitButton.disabled = true;
+            submitText.textContent = 'Submitting...';
+            submitSpinner.classList.remove('hidden');
+            formMessage.classList.add('hidden');
+
+            try {
+                // Prepare form data
+                const formDataObj = new FormData(form);
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    name: formDataObj.get('name'),
+                    email: formDataObj.get('email'),
+                    phone: formDataObj.get('phone'),
+                    message: formDataObj.get('message')
+                };
+
+                // Handle file upload if present
+                const fileInput = fileUpload.files[0];
+                if (fileInput) {
+                    // Convert file to base64
+                    const reader = new FileReader();
+                    reader.onloadend = async function() {
+                        const base64String = reader.result.split(',')[1]; // Remove data URL prefix
+                        data.fileName = fileInput.name;
+                        data.fileType = fileInput.type;
+                        data.fileSize = fileInput.size;
+                        data.fileData = base64String;
+
+                        // Submit to Google Apps Script
+                        await submitData(data);
+                    };
+                    reader.onerror = () => {
+                        showMessage('Error reading file. Please try again.', 'error');
+                        submitButton.disabled = false;
+                        submitText.textContent = 'Submit Form';
+                        submitSpinner.classList.add('hidden');
+                    };
+                    reader.readAsDataURL(fileInput);
+                } else {
+                    // No file, submit directly
+                    await submitData(data);
+                }
+
+            } catch (error) {
+                console.error('Error submitting form:', error);
+                showMessage('There was an error submitting the form. Please try again.', 'error');
+                submitButton.disabled = false;
+                submitText.textContent = 'Submit Form';
+                submitSpinner.classList.add('hidden');
+            }
+
+            async function submitData(data) {
+                try {
+                    if (DEBUG_MODE) {
+                        console.log('=== Form Submission Debug ===');
+                        console.log('URL:', GOOGLE_SCRIPT_URL);
+                        console.log('Data being sent:', { 
+                            name: data.name, 
+                            email: data.email, 
+                            phone: data.phone,
+                            message: data.message,
+                            hasFile: !!data.fileData,
+                            fileName: data.fileName || 'none',
+                            fileSize: data.fileSize || 0
+                        });
+                    }
+                    
+                    // Validate URL is configured
+                    if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('YOUR_GOOGLE_APPS_SCRIPT')) {
+                        throw new Error('Google Apps Script URL is not configured. Please update GOOGLE_SCRIPT_URL in custom-form.html');
+                    }
+                    
+                    // Convert data to URL-encoded format (more reliable with Google Apps Script)
+                    const formData = new URLSearchParams();
+                    formData.append('timestamp', data.timestamp || new Date().toISOString());
+                    formData.append('name', data.name || '');
+                    formData.append('email', data.email || '');
+                    formData.append('phone', data.phone || '');
+                    formData.append('message', data.message || '');
+                    
+                    // Add file data if present (for large files, we'll send as JSON separately)
+                    if (data.fileData && data.fileName) {
+                        // If file is small (< 1MB), send as URL param, otherwise warn
+                        if (data.fileSize < 1024 * 1024) {
+                            formData.append('fileName', data.fileName);
+                            formData.append('fileType', data.fileType || '');
+                            formData.append('fileData', data.fileData);
+                        } else {
+                            console.warn('File is too large for URL encoding. Using JSON method.');
+                            // Fall back to JSON for large files
+                            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                                method: 'POST',
+                                mode: 'no-cors',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(data)
+                            });
+                            setTimeout(() => {
+                                showMessage('Form submitted! ✅ Check your Google Sheet to verify.', 'success');
+                                document.getElementById('feedback-form').reset();
+                                filePreview.classList.add('hidden');
+                                filePreviewImage.style.display = '';
+                                submitButton.disabled = false;
+                                submitText.textContent = 'Submit Form';
+                                submitSpinner.classList.add('hidden');
+                            }, 1000);
+                            return;
+                        }
+                    }
+                    
+                    // Submit using URL-encoded format (works better with Google Apps Script)
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: formData.toString()
+                    });
+                    
+                    if (DEBUG_MODE) {
+                        console.log('Request sent using URL-encoded format');
+                        console.log('Please check:');
+                        console.log('1. Google Apps Script logs (View > Logs)');
+                        console.log('2. Google Sheet for new rows');
+                        console.log('3. Google Drive for uploaded files');
+                    }
+                    
+                    // Wait a moment then show success message
+                    setTimeout(() => {
+                        showMessage('Form submitted! ✅ Check your Google Sheet to verify the data was saved.', 'success');
+                        document.getElementById('feedback-form').reset();
+                        filePreview.classList.add('hidden');
+                        filePreviewImage.style.display = '';
+                        submitButton.disabled = false;
+                        submitText.textContent = 'Submit Form';
+                        submitSpinner.classList.add('hidden');
+                    }, 1500);
+                    
+                } catch (error) {
+                    console.error('=== Form Submission Error ===');
+                    console.error('Error details:', error);
+                    console.error('Error message:', error.message);
+                    console.error('Stack trace:', error.stack);
+                    
+                    let errorMsg = 'Error submitting form. ';
+                    if (error.message.includes('URL is not configured')) {
+                        errorMsg += error.message;
+                    } else {
+                        errorMsg += 'Please check:\n';
+                        errorMsg += '1. Browser console (F12) for errors\n';
+                        errorMsg += '2. Google Apps Script logs (View > Logs)\n';
+                        errorMsg += '3. That SPREADSHEET_ID is configured\n';
+                        errorMsg += '4. See TROUBLESHOOTING.md for detailed help';
+                    }
+                    
+                    showMessage(errorMsg, 'error');
+                    submitButton.disabled = false;
+                    submitText.textContent = 'Submit Form';
+                    submitSpinner.classList.add('hidden');
+                }
+            }
+        });
+
+        function showMessage(message, type) {
+            formMessage.textContent = message;
+            formMessage.classList.remove('hidden');
+            
+            if (type === 'success') {
+                formMessage.className = 'mt-4 p-4 rounded-lg bg-green-50 border border-green-200 text-green-800';
+            } else {
+                formMessage.className = 'mt-4 p-4 rounded-lg bg-red-50 border border-red-200 text-red-800';
+            }
+        }
+    </script>
+</body>
+</html>
+
